@@ -2,55 +2,32 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../App';
-import { getEvaluation, saveTestResult, supabase, updateEvaluation } from '../lib/supabase';
+import { getEvaluation, supabase, updateEvaluation } from '../lib/supabase';
+import { getTestCatalog } from '../lib/test-catalog';
 import {
-  ArrowLeft, Brain, CheckCircle, Clock, ChevronRight,
-  FileText, Calendar, User, BarChart2
+  ArrowLeft, Brain, CheckCircle, ChevronRight, FileText, User
 } from 'lucide-react';
 
-// Todos os testes disponíveis agora e no futuro
-const TESTS = [
-  {
-    code: 'WISC_IV', name: 'WISC-IV', desc: 'Escala de Inteligência Wechsler para Crianças',
-    category: 'Eficiência Intelectual', ageRange: '6-16 anos', route: 'wisc-iv', available: true,
-  },
-  {
-    code: 'WAIS_III', name: 'WAIS-III', desc: 'Escala de Inteligência Wechsler para Adultos',
-    category: 'Eficiência Intelectual', ageRange: '>16 anos', route: null, available: false,
-  },
-  {
-    code: 'WASI', name: 'WASI', desc: 'Escala Abreviada de Inteligência de Wechsler',
-    category: 'Eficiência Intelectual', ageRange: '6-89 anos', route: null, available: false,
-  },
-  {
-    code: 'RAVLT', name: 'RAVLT', desc: 'Teste de Aprendizagem Auditivo-Verbal de Rey',
-    category: 'Memória', ageRange: '6+ anos', route: null, available: false,
-  },
-  {
-    code: 'TRILHAS', name: 'Trilhas', desc: 'Teste de Trilhas (Trail Making Test)',
-    category: 'Função Executiva', ageRange: 'variado', route: null, available: false,
-  },
-  {
-    code: 'STROOP', name: 'STROOP', desc: 'Teste de Cores e Palavras de Stroop',
-    category: 'Função Executiva', ageRange: 'variado', route: null, available: false,
-  },
-  {
-    code: 'CBCL', name: 'CBCL', desc: 'Child Behavior Checklist - 6 a 18 anos',
-    category: 'Comportamento', ageRange: '6-18 anos', route: null, available: false,
-  },
-  {
-    code: 'D2_R', name: 'D2-R', desc: 'Teste de Atenção Concentrada D2-R',
-    category: 'Atenção', ageRange: '8+ anos', route: null, available: false,
-  },
-];
-
 const CATEGORY_COLORS = {
-  'Eficiência Intelectual': '#534AB7',
-  'Memória': '#378ADD',
-  'Função Executiva': '#D85A30',
-  'Atenção': '#BA7517',
-  'Comportamento': '#D4537E',
-  'Linguagem': '#1D9E75',
+  INTELLIGENCE: '#534AB7',
+  ATTENTION: '#BA7517',
+  MEMORY: '#378ADD',
+  EXECUTIVE: '#D85A30',
+  LANGUAGE: '#1D9E75',
+  ACADEMIC: '#0F6E56',
+  BEHAVIOR: '#D4537E',
+  PERSONALITY: '#7F77DD',
+  DEVELOPMENT: '#3B8C6E',
+  VISUOCONSTRUCTION: '#D9730D',
+  NEUROPSYCHOLOGY: '#5F5E5A',
+};
+
+const IMPLEMENTATION_STATUS = {
+  active: { label: 'disponível', color: 'var(--success)', background: 'var(--success-bg)' },
+  catalogued: { label: 'catalogado', color: 'var(--text-3)', background: 'var(--bg)' },
+  modeling: { label: 'em desenvolvimento', color: 'var(--warning)', background: 'var(--warning-bg)' },
+  testing: { label: 'em validação', color: 'var(--accent)', background: 'var(--accent-bg)' },
+  retired: { label: 'inativo', color: 'var(--text-3)', background: 'var(--bg)' },
 };
 
 function calcIdade(dob) {
@@ -76,24 +53,71 @@ function calcIdadeAnos(dob, dataAplicacao) {
   return anos;
 }
 
+function formatAgeValue(months) {
+  if (!Number.isFinite(months)) return null;
+  if (months % 12 === 0) return `${months / 12} anos`;
+  const years = Math.floor(months / 12);
+  const remainder = months % 12;
+  return years ? `${years}a ${remainder}m` : `${remainder} meses`;
+}
+
+function formatAgeRange(test) {
+  if (test.code === 'WISC_IV') return '6–16 anos';
+
+  const minimum = formatAgeValue(test.minAgeMonths);
+  const maximum = formatAgeValue(test.maxAgeMonths);
+  if (minimum && maximum) return `${minimum}–${maximum}`;
+  if (minimum) return `a partir de ${minimum}`;
+  if (maximum) return `até ${maximum}`;
+  return 'faixa etária conforme manual';
+}
+
+function normalizeCatalogRow(row) {
+  return {
+    code: row.form_code,
+    name: row.form_name,
+    desc: row.description
+      || (row.instrument_name !== row.form_name ? row.instrument_name : 'Instrumento catalogado'),
+    category: row.category_name,
+    categoryCode: row.category_code,
+    minAgeMonths: row.min_age_months,
+    maxAgeMonths: row.max_age_months,
+    route: row.engine_key,
+    status: row.implementation_status,
+    available: row.implementation_status === 'active' && Boolean(row.engine_key),
+  };
+}
+
 export default function EvaluationDetail() {
   const { evalId } = useParams();
   const navigate = useNavigate();
   const { profile } = useAuth();
   const [evaluation, setEvaluation] = useState(null);
   const [testResults, setTestResults] = useState([]);
+  const [tests, setTests] = useState([]);
+  const [catalogError, setCatalogError] = useState('');
   const [loading, setLoading] = useState(true);
 
   useEffect(() => { load(); }, [evalId]);
 
   async function load() {
-    const [eRes, tRes] = await Promise.all([
+    setLoading(true);
+    const [evaluationResult, testResultsResult, catalogResult] = await Promise.all([
       getEvaluation(evalId),
       supabase.from('test_results').select('test_code, computed_scores, updated_at')
         .eq('evaluation_id', evalId),
+      getTestCatalog(),
     ]);
-    setEvaluation(eRes.data);
-    setTestResults(tRes.data || []);
+
+    setEvaluation(evaluationResult.data);
+    setTestResults(testResultsResult.data || []);
+    if (catalogResult.error) {
+      setTests([]);
+      setCatalogError(`Não foi possível carregar o catálogo de testes: ${catalogResult.error.message}`);
+    } else {
+      setTests((catalogResult.data || []).map(normalizeCatalogRow));
+      setCatalogError('');
+    }
     setLoading(false);
   }
 
@@ -113,12 +137,14 @@ export default function EvaluationDetail() {
   );
   const appliedTests = new Set(testResults.map(t => t.test_code));
   const canEdit = profile?.role === 'master' || evaluation.psicologo_id === profile?.id;
+  const testsByCode = new Map(tests.map(test => [test.code, test]));
 
   // Group tests by category
   const byCategory = {};
-  for (const t of TESTS) {
-    if (!byCategory[t.category]) byCategory[t.category] = [];
-    byCategory[t.category].push(t);
+  for (const test of tests) {
+    const key = `${test.categoryCode}:${test.category}`;
+    if (!byCategory[key]) byCategory[key] = [];
+    byCategory[key].push(test);
   }
 
   return (
@@ -190,7 +216,7 @@ export default function EvaluationDetail() {
           </h2>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
             {testResults.map(t => {
-              const info = TESTS.find(x => x.code === t.test_code);
+              const info = testsByCode.get(t.test_code);
               return (
                 <div
                   key={t.test_code}
@@ -213,10 +239,23 @@ export default function EvaluationDetail() {
         </div>
       )}
 
+      {catalogError && (
+        <div style={{
+          padding: '12px 16px', marginBottom: 16,
+          borderRadius: 'var(--radius)',
+          color: 'var(--danger)', background: 'var(--danger-bg)',
+          border: '1px solid #F7C1C1', fontSize: 12,
+        }}>
+          {catalogError}
+        </div>
+      )}
+
       {/* Test list by category */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-        {Object.entries(byCategory).map(([cat, tests]) => (
-          <div key={cat} style={{
+        {Object.entries(byCategory).map(([categoryKey, categoryTests]) => {
+          const [categoryCode, categoryName] = categoryKey.split(':');
+          return (
+          <div key={categoryKey} style={{
             background: 'var(--surface)', border: '1px solid var(--border)',
             borderRadius: 'var(--radius)', overflow: 'hidden',
           }}>
@@ -227,19 +266,20 @@ export default function EvaluationDetail() {
             }}>
               <div style={{
                 width: 8, height: 8, borderRadius: '50%',
-                background: CATEGORY_COLORS[cat] || '#888',
+                background: CATEGORY_COLORS[categoryCode] || '#888',
               }} />
               <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-2)', textTransform: 'uppercase', letterSpacing: '.04em' }}>
-                {cat}
+                {categoryName}
               </span>
             </div>
 
-            {tests.map((t, i) => {
+            {categoryTests.map((t, i) => {
               const applied = appliedTests.has(t.code);
               const result = testResults.find(r => r.test_code === t.code);
               const foraDaFaixaWisc = t.code === 'WISC_IV' &&
                 (idadeNaAplicacao === null || idadeNaAplicacao < 6 || idadeNaAplicacao > 16);
               const canOpen = t.available && (applied || !foraDaFaixaWisc);
+              const status = IMPLEMENTATION_STATUS[t.status] || IMPLEMENTATION_STATUS.catalogued;
 
               return (
                 <div
@@ -251,9 +291,9 @@ export default function EvaluationDetail() {
                   style={{
                     display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                     padding: '12px 20px',
-                    borderBottom: i < tests.length - 1 ? '1px solid var(--border)' : 'none',
+                    borderBottom: i < categoryTests.length - 1 ? '1px solid var(--border)' : 'none',
                     cursor: canOpen ? 'pointer' : 'default',
-                    opacity: canOpen ? 1 : 0.5,
+                    opacity: canOpen ? 1 : 0.68,
                     transition: 'background .1s',
                   }}
                   onMouseEnter={e => canOpen && (e.currentTarget.style.background = 'var(--bg)')}
@@ -272,11 +312,12 @@ export default function EvaluationDetail() {
                     <div>
                       <div style={{ fontSize: 13, fontWeight: 500, display: 'flex', alignItems: 'center', gap: 6 }}>
                         {t.name}
-                        {!t.available && (
-                          <span style={{ fontSize: 10, color: 'var(--text-3)', fontWeight: 400 }}>
-                            em breve
-                          </span>
-                        )}
+                        <span style={{
+                          fontSize: 10, color: status.color, background: status.background,
+                          padding: '1px 6px', borderRadius: 10, fontWeight: 500,
+                        }}>
+                          {status.label}
+                        </span>
                         {foraDaFaixaWisc && !applied && (
                           <span style={{ fontSize: 10, color: 'var(--warning)', fontWeight: 500 }}>
                             fora da faixa etária
@@ -284,7 +325,7 @@ export default function EvaluationDetail() {
                         )}
                       </div>
                       <div style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 1 }}>
-                        {t.desc} · {t.ageRange}
+                        {t.desc} · {formatAgeRange(t)}
                       </div>
                     </div>
                   </div>
@@ -304,7 +345,8 @@ export default function EvaluationDetail() {
               );
             })}
           </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );
