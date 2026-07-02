@@ -63,6 +63,19 @@ function calcIdade(dob) {
   return `${anos}a ${meses}m`;
 }
 
+function calcIdadeAnos(dob, dataAplicacao) {
+  if (!dob || !dataAplicacao) return null;
+  const nascimento = new Date(`${dob}T00:00:00`);
+  const aplicacao = new Date(`${dataAplicacao}T00:00:00`);
+  let anos = aplicacao.getFullYear() - nascimento.getFullYear();
+  const aniversarioAindaNaoOcorreu =
+    aplicacao.getMonth() < nascimento.getMonth() ||
+    (aplicacao.getMonth() === nascimento.getMonth() &&
+      aplicacao.getDate() < nascimento.getDate());
+  if (aniversarioAindaNaoOcorreu) anos--;
+  return anos;
+}
+
 export default function EvaluationDetail() {
   const { evalId } = useParams();
   const navigate = useNavigate();
@@ -94,6 +107,10 @@ export default function EvaluationDetail() {
 
   const patient = evaluation.patients;
   const psicologo = evaluation.profiles;
+  const idadeNaAplicacao = calcIdadeAnos(
+    patient?.data_nascimento,
+    evaluation.data_aplicacao
+  );
   const appliedTests = new Set(testResults.map(t => t.test_code));
   const canEdit = profile?.role === 'master' || evaluation.psicologo_id === profile?.id;
 
@@ -220,23 +237,26 @@ export default function EvaluationDetail() {
             {tests.map((t, i) => {
               const applied = appliedTests.has(t.code);
               const result = testResults.find(r => r.test_code === t.code);
+              const foraDaFaixaWisc = t.code === 'WISC_IV' &&
+                (idadeNaAplicacao === null || idadeNaAplicacao < 6 || idadeNaAplicacao > 16);
+              const canOpen = t.available && (applied || !foraDaFaixaWisc);
 
               return (
                 <div
                   key={t.code}
                   onClick={() => {
                     if (!canEdit && !applied) return;
-                    if (t.available && t.route) navigate(`/evaluations/${evalId}/${t.route}`);
+                    if (canOpen && t.route) navigate(`/evaluations/${evalId}/${t.route}`);
                   }}
                   style={{
                     display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                     padding: '12px 20px',
                     borderBottom: i < tests.length - 1 ? '1px solid var(--border)' : 'none',
-                    cursor: t.available ? 'pointer' : 'default',
-                    opacity: !t.available ? 0.5 : 1,
+                    cursor: canOpen ? 'pointer' : 'default',
+                    opacity: canOpen ? 1 : 0.5,
                     transition: 'background .1s',
                   }}
-                  onMouseEnter={e => t.available && (e.currentTarget.style.background = 'var(--bg)')}
+                  onMouseEnter={e => canOpen && (e.currentTarget.style.background = 'var(--bg)')}
                   onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
                 >
                   <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
@@ -257,6 +277,11 @@ export default function EvaluationDetail() {
                             em breve
                           </span>
                         )}
+                        {foraDaFaixaWisc && !applied && (
+                          <span style={{ fontSize: 10, color: 'var(--warning)', fontWeight: 500 }}>
+                            fora da faixa etária
+                          </span>
+                        )}
                       </div>
                       <div style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 1 }}>
                         {t.desc} · {t.ageRange}
@@ -273,7 +298,7 @@ export default function EvaluationDetail() {
                         QI {result.computed_scores.qiTotal.qi}
                       </span>
                     )}
-                    {t.available && <ChevronRight size={14} color="var(--text-3)" />}
+                    {canOpen && <ChevronRight size={14} color="var(--text-3)" />}
                   </div>
                 </div>
               );

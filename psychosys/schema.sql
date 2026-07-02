@@ -22,6 +22,11 @@ CREATE TABLE IF NOT EXISTS profiles (
   cep           TEXT,
   fone          TEXT,
   email         TEXT,
+  logo_data     TEXT,
+  logo_alignment TEXT NOT NULL DEFAULT 'center'
+                 CHECK (logo_alignment IN ('left', 'center', 'right')),
+  footer_line1  TEXT,
+  footer_line2  TEXT,
   created_at    TIMESTAMPTZ DEFAULT NOW(),
   updated_at    TIMESTAMPTZ DEFAULT NOW()
 );
@@ -113,6 +118,48 @@ CREATE TABLE IF NOT EXISTS receipts (
 );
 
 -- ============================================================
+-- ANAMNESES E QUESTIONÁRIOS COMPARTILHÁVEIS
+-- ============================================================
+CREATE TABLE IF NOT EXISTS anamneses (
+  id              UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  patient_id      UUID NOT NULL REFERENCES patients(id) ON DELETE CASCADE,
+  psicologo_id    UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+  template_key    TEXT,
+  nome            TEXT NOT NULL,
+  status          TEXT NOT NULL DEFAULT 'rascunho'
+                  CHECK (status IN ('rascunho', 'compartilhada', 'respondida', 'revisada')),
+  questions       JSONB NOT NULL DEFAULT '[]'::jsonb,
+  responses       JSONB NOT NULL DEFAULT '{}'::jsonb,
+  result_text     TEXT NOT NULL DEFAULT '',
+  share_token     UUID NOT NULL DEFAULT uuid_generate_v4() UNIQUE,
+  current_step    INTEGER NOT NULL DEFAULT 0,
+  draft_saved_at  TIMESTAMPTZ,
+  shared_at       TIMESTAMPTZ,
+  responded_at    TIMESTAMPTZ,
+  created_at      TIMESTAMPTZ DEFAULT NOW(),
+  updated_at      TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS pre_reports (
+  id                  UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  patient_id          UUID NOT NULL UNIQUE REFERENCES patients(id) ON DELETE CASCADE,
+  psicologo_id        UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+  description_demand  TEXT NOT NULL DEFAULT '',
+  anamnesis_text      TEXT NOT NULL DEFAULT '',
+  procedure_notes     TEXT NOT NULL DEFAULT '',
+  comments            TEXT NOT NULL DEFAULT '',
+  analysis_notes      TEXT NOT NULL DEFAULT '',
+  form_results_text   TEXT NOT NULL DEFAULT '',
+  summary             TEXT NOT NULL DEFAULT '',
+  conclusion          TEXT NOT NULL DEFAULT '',
+  referrals           TEXT NOT NULL DEFAULT '',
+  status              TEXT NOT NULL DEFAULT 'rascunho'
+                      CHECK (status IN ('rascunho', 'revisado')),
+  created_at          TIMESTAMPTZ DEFAULT NOW(),
+  updated_at          TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- ============================================================
 -- TRIGGERS: updated_at automático
 -- ============================================================
 CREATE OR REPLACE FUNCTION update_updated_at()
@@ -137,6 +184,14 @@ CREATE TRIGGER trg_evaluations_updated
 
 CREATE TRIGGER trg_test_results_updated
   BEFORE UPDATE ON test_results
+  FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+
+CREATE TRIGGER trg_anamneses_updated
+  BEFORE UPDATE ON anamneses
+  FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+
+CREATE TRIGGER trg_pre_reports_updated
+  BEFORE UPDATE ON pre_reports
   FOR EACH ROW EXECUTE FUNCTION update_updated_at();
 
 -- ============================================================
@@ -169,6 +224,8 @@ ALTER TABLE evaluations     ENABLE ROW LEVEL SECURITY;
 ALTER TABLE test_results    ENABLE ROW LEVEL SECURITY;
 ALTER TABLE normative_data  ENABLE ROW LEVEL SECURITY;
 ALTER TABLE receipts        ENABLE ROW LEVEL SECURITY;
+ALTER TABLE anamneses       ENABLE ROW LEVEL SECURITY;
+ALTER TABLE pre_reports     ENABLE ROW LEVEL SECURITY;
 
 -- Função helper: verifica se usuário é master
 CREATE OR REPLACE FUNCTION is_master()
@@ -259,6 +316,102 @@ CREATE POLICY "receipts_insert" ON receipts FOR INSERT
 CREATE POLICY "receipts_update" ON receipts FOR UPDATE
   USING (psicologo_id = auth.uid() OR is_master());
 
+-- ANAMNESES: acesso integral apenas pelo profissional responsável ou master
+CREATE POLICY "anamneses_select" ON anamneses FOR SELECT
+  USING (psicologo_id = auth.uid() OR is_master());
+
+CREATE POLICY "anamneses_insert" ON anamneses FOR INSERT
+  WITH CHECK (psicologo_id = auth.uid());
+
+CREATE POLICY "anamneses_update" ON anamneses FOR UPDATE
+  USING (psicologo_id = auth.uid() OR is_master());
+
+CREATE POLICY "anamneses_delete" ON anamneses FOR DELETE
+  USING (psicologo_id = auth.uid() OR is_master());
+
+CREATE POLICY "pre_reports_select" ON pre_reports FOR SELECT
+  USING (psicologo_id = auth.uid() OR is_master());
+
+CREATE POLICY "pre_reports_insert" ON pre_reports FOR INSERT
+  WITH CHECK (psicologo_id = auth.uid());
+
+CREATE POLICY "pre_reports_update" ON pre_reports FOR UPDATE
+  USING (psicologo_id = auth.uid() OR is_master());
+
+CREATE POLICY "pre_reports_delete" ON pre_reports FOR DELETE
+  USING (psicologo_id = auth.uid() OR is_master());
+
+-- O paciente acessa somente o formulário identificado pelo token recebido.
+CREATE OR REPLACE FUNCTION get_shared_anamnesis(p_token UUID)
+RETURNS TABLE (
+  id UUID,
+  nome TEXT,
+  patient_nome TEXT,
+  questions JSONB,
+  responses JSONB,
+  current_step INTEGER,
+  status TEXT,
+  logo_data TEXT,
+  logo_alignment TEXT,
+  footer_line1 TEXT,
+  footer_line2 TEXT
+) AS $$
+  SELECT
+    a.id, a.nome, p.nome, a.questions, a.responses, a.current_step, a.status,
+    pr.logo_data, pr.logo_alignment, pr.footer_line1, pr.footer_line2
+  FROM anamneses a
+  JOIN patients p ON p.id = a.patient_id
+  JOIN profiles pr ON pr.id = a.psicologo_id
+  WHERE a.share_token = p_token
+    AND a.status IN ('compartilhada', 'respondida');
+$$ LANGUAGE sql SECURITY DEFINER STABLE SET search_path = public;
+
+CREATE OR REPLACE FUNCTION save_shared_anamnesis_draft(
+  p_token UUID,
+  p_responses JSONB,
+  p_current_step INTEGER
+)
+RETURNS BOOLEAN AS $$
+DECLARE
+  affected_rows INTEGER;
+BEGIN
+  UPDATE anamneses
+  SET responses = p_responses,
+      current_step = GREATEST(p_current_step, 0),
+      draft_saved_at = NOW()
+  WHERE share_token = p_token
+    AND status = 'compartilhada';
+
+  GET DIAGNOSTICS affected_rows = ROW_COUNT;
+  RETURN affected_rows = 1;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
+
+CREATE OR REPLACE FUNCTION submit_shared_anamnesis(p_token UUID, p_responses JSONB)
+RETURNS BOOLEAN AS $$
+DECLARE
+  affected_rows INTEGER;
+BEGIN
+  UPDATE anamneses
+  SET responses = p_responses,
+      status = 'respondida',
+      current_step = 0,
+      responded_at = NOW()
+  WHERE share_token = p_token
+    AND status IN ('compartilhada', 'respondida');
+
+  GET DIAGNOSTICS affected_rows = ROW_COUNT;
+  RETURN affected_rows = 1;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
+
+REVOKE ALL ON FUNCTION get_shared_anamnesis(UUID) FROM PUBLIC;
+REVOKE ALL ON FUNCTION save_shared_anamnesis_draft(UUID, JSONB, INTEGER) FROM PUBLIC;
+REVOKE ALL ON FUNCTION submit_shared_anamnesis(UUID, JSONB) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION get_shared_anamnesis(UUID) TO anon, authenticated;
+GRANT EXECUTE ON FUNCTION save_shared_anamnesis_draft(UUID, JSONB, INTEGER) TO anon, authenticated;
+GRANT EXECUTE ON FUNCTION submit_shared_anamnesis(UUID, JSONB) TO anon, authenticated;
+
 -- ============================================================
 -- VIEWS ÚTEIS
 -- ============================================================
@@ -307,3 +460,6 @@ CREATE INDEX IF NOT EXISTS idx_evaluations_psicologo ON evaluations(psicologo_id
 CREATE INDEX IF NOT EXISTS idx_test_results_evaluation ON test_results(evaluation_id);
 CREATE INDEX IF NOT EXISTS idx_test_results_code ON test_results(test_code);
 CREATE INDEX IF NOT EXISTS idx_normative_code ON normative_data(test_code, table_name);
+CREATE INDEX IF NOT EXISTS idx_anamneses_patient ON anamneses(patient_id);
+CREATE INDEX IF NOT EXISTS idx_anamneses_psicologo ON anamneses(psicologo_id);
+CREATE INDEX IF NOT EXISTS idx_pre_reports_psicologo ON pre_reports(psicologo_id);

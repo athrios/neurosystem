@@ -107,6 +107,90 @@ export async function updateEvaluation(id, data) {
 }
 
 // ============================================================
+// ANAMNESES
+// ============================================================
+
+export async function getAnamneses(patientId) {
+  return supabase
+    .from('anamneses')
+    .select('id, nome, template_key, status, share_token, created_at, responded_at')
+    .eq('patient_id', patientId)
+    .order('created_at', { ascending: false });
+}
+
+export async function getAnamnesesForReport(patientId) {
+  return supabase
+    .from('anamneses')
+    .select('id, nome, template_key, status, questions, responses, result_text, responded_at')
+    .eq('patient_id', patientId)
+    .in('status', ['respondida', 'revisada'])
+    .order('responded_at', { ascending: true });
+}
+
+export async function getAnamnesis(id) {
+  return supabase
+    .from('anamneses')
+    .select('*, patients(nome)')
+    .eq('id', id)
+    .single();
+}
+
+export async function createAnamnesis(data) {
+  return supabase.from('anamneses').insert(data).select().single();
+}
+
+export async function updateAnamnesis(id, data) {
+  return supabase.from('anamneses').update(data).eq('id', id).select().single();
+}
+
+export async function deleteAnamnesis(id) {
+  return supabase.from('anamneses').delete().eq('id', id);
+}
+
+export async function getSharedAnamnesis(token) {
+  return supabase.rpc('get_shared_anamnesis', { p_token: token }).maybeSingle();
+}
+
+export async function saveSharedAnamnesisDraft(token, responses, currentStep) {
+  return supabase.rpc('save_shared_anamnesis_draft', {
+    p_token: token,
+    p_responses: responses,
+    p_current_step: currentStep,
+  });
+}
+
+export async function submitSharedAnamnesis(token, responses) {
+  return supabase.rpc('submit_shared_anamnesis', {
+    p_token: token,
+    p_responses: responses,
+  });
+}
+
+// ============================================================
+// PRÉ-LAUDOS
+// ============================================================
+
+export async function getPreReport(patientId) {
+  return supabase
+    .from('pre_reports')
+    .select('*')
+    .eq('patient_id', patientId)
+    .maybeSingle();
+}
+
+export async function savePreReport(patientId, psicologoId, fields) {
+  return supabase
+    .from('pre_reports')
+    .upsert({
+      patient_id: patientId,
+      psicologo_id: psicologoId,
+      ...fields,
+    }, { onConflict: 'patient_id' })
+    .select()
+    .single();
+}
+
+// ============================================================
 // TEST RESULTS
 // ============================================================
 
@@ -139,6 +223,15 @@ export async function saveTestResult(evaluationId, testCode, rawScores, computed
 // ============================================================
 
 const normCache = {};
+let localWiscDataPromise;
+
+async function getLocalWiscData() {
+  if (!localWiscDataPromise) {
+    localWiscDataPromise = import('../../wisc_iv_normas.json')
+      .then(module => module.default);
+  }
+  return localWiscDataPromise;
+}
 
 export async function getNormativeData(testCode, tableName) {
   const key = `${testCode}_${tableName}`;
@@ -168,19 +261,29 @@ export async function getWiscNormTables() {
     .eq('test_code', 'WISC_IV')
     .like('table_name', 'WISC_IV_SUBTESTE_%');
   
-  if (error || !data) return null;
-  
-  const tables = data
-    .filter(d => d.meta?.type === 'subtest_lookup')
+  const tables = (data || [])
+    .filter(d =>
+      Number.isFinite(Number(d.meta?.min_days)) &&
+      Number.isFinite(Number(d.meta?.max_days)) &&
+      d.data
+    )
     .map(d => ({
-      min_days: d.meta.min_days,
-      max_days: d.meta.max_days,
+      min_days: Number(d.meta.min_days),
+      max_days: Number(d.meta.max_days),
       subtests: d.data,
     }))
     .sort((a, b) => a.min_days - b.min_days);
+
+  const localData = await getLocalWiscData();
+  const localTables = localData.subtest_tables || [];
+  const hasCompleteCoverage =
+    !error &&
+    tables.length >= localTables.length &&
+    tables[0]?.min_days <= localTables[0]?.min_days &&
+    tables[tables.length - 1]?.max_days >= localTables[localTables.length - 1]?.max_days;
   
-  normCache[cacheKey] = tables;
-  return tables;
+  normCache[cacheKey] = hasCompleteCoverage ? tables : localTables;
+  return normCache[cacheKey];
 }
 
 export async function getWiscIndexTables() {
@@ -193,14 +296,18 @@ export async function getWiscIndexTables() {
     .eq('test_code', 'WISC_IV')
     .like('table_name', 'WISC_IV_INDEX_%');
   
-  if (error || !data) return null;
-  
   const tables = {};
-  for (const row of data) {
+  for (const row of data || []) {
     const indexCode = row.table_name.replace('WISC_IV_INDEX_', '');
-    tables[indexCode] = row.data.rows;
+    if (Array.isArray(row.data?.rows)) {
+      tables[indexCode] = row.data.rows;
+    }
   }
+
+  const requiredTables = ['ICV', 'IOP', 'IMO', 'IVP', 'QI'];
+  const hasAllTables = !error && requiredTables.every(code => tables[code]?.length > 0);
+  const localData = hasAllTables ? null : await getLocalWiscData();
   
-  normCache[cacheKey] = tables;
-  return tables;
+  normCache[cacheKey] = hasAllTables ? tables : localData.index_tables;
+  return normCache[cacheKey];
 }

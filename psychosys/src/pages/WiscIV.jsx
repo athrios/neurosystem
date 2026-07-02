@@ -76,10 +76,10 @@ function SubtestRow({ st, value, onChange, score, disabled }) {
         {score?.pp ?? '—'}
       </td>
       <td style={{ padding: '8px 12px', textAlign: 'center', fontSize: 12, color: 'var(--text-2)' }}>
-        {score?.z !== null ? score?.z?.toFixed(2) : '—'}
+        {Number.isFinite(score?.z) ? score.z.toFixed(2) : '—'}
       </td>
       <td style={{ padding: '8px 12px', textAlign: 'center', fontSize: 12, color: 'var(--text-2)' }}>
-        {score?.percentil !== null ? score?.percentil?.toFixed(1) + '%' : '—'}
+        {Number.isFinite(score?.percentil) ? `${score.percentil.toFixed(1)}%` : '—'}
       </td>
       <td style={{ padding: '8px 12px' }}>
         <ClassifBadge label={score?.classif} />
@@ -240,11 +240,16 @@ export default function WiscIV() {
   const idadeTexto = patient?.data_nascimento
     ? calcIdadeFormatada(patient.data_nascimento, evaluation.data_aplicacao).texto
     : '—';
+  const idade = patient?.data_nascimento
+    ? calcIdadeFormatada(patient.data_nascimento, evaluation.data_aplicacao)
+    : null;
+  const idadeValida = idade && idade.anos >= 6 && idade.anos <= 16;
 
-  const canEdit = profile?.role === 'master' || evaluation.psicologo_id === profile?.id;
+  const canEdit = idadeValida &&
+    (profile?.role === 'master' || evaluation.psicologo_id === profile?.id);
 
   // Radar chart data
-  const radarData = computed ? INDICES.map(idx => ({
+  const radarData = computed?.indexScores ? INDICES.map(idx => ({
     idx: idx.code,
     value: computed.indexScores[idx.code]?.qi ?? 0,
     fullMark: 160,
@@ -306,6 +311,23 @@ export default function WiscIV() {
           </div>
         </div>
       </div>
+
+      {!idadeValida && (
+        <div style={{
+          display: 'flex', gap: 10, padding: '12px 16px', marginBottom: 20,
+          background: 'var(--warning-bg)', border: '1px solid #FAC775',
+          borderRadius: 8, fontSize: 12, color: 'var(--warning)',
+        }}>
+          <AlertTriangle size={15} style={{ flexShrink: 0, marginTop: 1 }} />
+          <div>
+            <strong>WISC-IV não aplicável para esta idade.</strong>
+            <div style={{ marginTop: 2 }}>
+              O paciente possui {idadeTexto}; a faixa normativa é de 6:0 a 16:11 anos.
+              Confirme a data de nascimento no cadastro do paciente ou selecione um teste adequado à idade.
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Results summary */}
       {computed && !computed.erro && (

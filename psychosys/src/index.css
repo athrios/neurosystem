@@ -49,3 +49,92 @@ input, select, textarea {
 ::-webkit-scrollbar { width: 6px; height: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 3px; }
+
+@keyframes anamnesis-step-in {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes anamnesis-spin {
+  to { transform: rotate(360deg); }
+}
+
+.anamnesis-step {
+  animation: anamnesis-step-in .24s ease-out both;
+}
+
+.anamnesis-spin {
+  animation: anamnesis-spin .8s linear infinite;
+}
+
+.anamnesis-option:hover {
+  transform: translateY(-1px);
+  border-color: var(--accent-border) !important;
+}
+
+.report-print-text {
+  display: none;
+  white-space: pre-wrap;
+  font-size: 12px;
+  line-height: 1.65;
+  text-align: justify;
+}
+
+@media print {
+  @page {
+    size: A4;
+    margin: 16mm 15mm;
+  }
+
+  body {
+    background: #fff;
+    font-family: Arial, sans-serif;
+  }
+
+  body * {
+    visibility: hidden;
+  }
+
+  .report-document,
+  .report-document * {
+    visibility: visible;
+  }
+
+  .report-document {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    border: 0 !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+  }
+
+  .no-print,
+  .report-edit-field {
+    display: none !important;
+  }
+
+  .report-print-text {
+    display: block;
+  }
+
+  .report-custom-footer {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: -10mm;
+    margin: 0 !important;
+    background: #fff;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .anamnesis-step,
+  .anamnesis-spin {
+    animation: none;
+  }
+
+  .anamnesis-option {
+    transition: none !important;
+  }
+}

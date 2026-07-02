@@ -10,6 +10,9 @@ import PatientDetail from './pages/PatientDetail';
 import WiscIV from './pages/WiscIV';
 import EvaluationDetail from './pages/EvaluationDetail';
 import ProfilePage from './pages/ProfilePage';
+import AnamnesisEditor from './pages/AnamnesisEditor';
+import SharedAnamnesis from './pages/SharedAnamnesis';
+import PreReport from './pages/PreReport';
 import Layout from './components/Layout';
 
 // ============================================================
@@ -81,6 +84,8 @@ export default function App() {
       <BrowserRouter>
         <Routes>
           <Route path="/login" element={<Login />} />
+          <Route path="/escala/:token" element={<SharedAnamnesis />} />
+          <Route path="/anamnese/:token" element={<SharedAnamnesis />} />
           <Route
             path="/"
             element={
@@ -95,6 +100,11 @@ export default function App() {
             <Route path="patients/:id" element={<PatientDetail />} />
             <Route path="evaluations/:evalId" element={<EvaluationDetail />} />
             <Route path="evaluations/:evalId/wisc-iv" element={<WiscIV />} />
+            <Route path="patients/:patientId/escalas/new" element={<AnamnesisEditor />} />
+            <Route path="escalas/:anamnesisId" element={<AnamnesisEditor />} />
+            <Route path="patients/:patientId/anamneses/new" element={<AnamnesisEditor />} />
+            <Route path="anamneses/:anamnesisId" element={<AnamnesisEditor />} />
+            <Route path="patients/:patientId/pre-report" element={<PreReport />} />
             <Route path="profile" element={<ProfilePage />} />
           </Route>
           <Route path="*" element={<Navigate to="/dashboard" replace />} />
