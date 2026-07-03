@@ -8,10 +8,12 @@ import Dashboard from './pages/Dashboard';
 import Patients from './pages/Patients';
 import PatientDetail from './pages/PatientDetail';
 import WiscIV from './pages/WiscIV';
+import GenericTest from './pages/GenericTest';
 import EvaluationDetail from './pages/EvaluationDetail';
 import ProfilePage from './pages/ProfilePage';
 import AnamnesisEditor from './pages/AnamnesisEditor';
 import SharedAnamnesis from './pages/SharedAnamnesis';
+import SharedTestResponse from './pages/SharedTestResponse';
 import PreReport from './pages/PreReport';
 import Layout from './components/Layout';
 
@@ -86,6 +88,7 @@ export default function App() {
           <Route path="/login" element={<Login />} />
           <Route path="/escala/:token" element={<SharedAnamnesis />} />
           <Route path="/anamnese/:token" element={<SharedAnamnesis />} />
+          <Route path="/teste/:token" element={<SharedTestResponse />} />
           <Route
             path="/"
             element={
@@ -100,6 +103,7 @@ export default function App() {
             <Route path="patients/:id" element={<PatientDetail />} />
             <Route path="evaluations/:evalId" element={<EvaluationDetail />} />
             <Route path="evaluations/:evalId/wisc-iv" element={<WiscIV />} />
+            <Route path="evaluations/:evalId/tests/:formCode" element={<GenericTest />} />
             <Route path="patients/:patientId/escalas/new" element={<AnamnesisEditor />} />
             <Route path="escalas/:anamnesisId" element={<AnamnesisEditor />} />
             <Route path="patients/:patientId/anamneses/new" element={<AnamnesisEditor />} />

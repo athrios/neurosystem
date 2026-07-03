@@ -3,9 +3,15 @@ import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../App';
 import { getEvaluation, supabase, updateEvaluation } from '../lib/supabase';
-import { getTestCatalog } from '../lib/test-catalog';
+import { getTestCatalog, getTestResponseLinks } from '../lib/test-catalog';
+import { isRenderableTestEngine } from '../lib/test-engine-registry';
 import {
-  ArrowLeft, Brain, CheckCircle, ChevronRight, FileText, User
+  getPendingTestResponses,
+  isShareableTestForm,
+} from '../lib/test-response-links';
+import TestShareDialog from '../components/test-form/TestShareDialog';
+import {
+  ArrowLeft, Brain, CheckCircle, ChevronRight, FileText, Send, User
 } from 'lucide-react';
 
 const CATEGORY_COLORS = {
@@ -73,6 +79,7 @@ function formatAgeRange(test) {
 }
 
 function normalizeCatalogRow(row) {
+  const specializedRoute = row.engine_key === 'wisc-iv' ? 'wisc-iv' : null;
   return {
     code: row.form_code,
     name: row.form_name,
@@ -82,10 +89,22 @@ function normalizeCatalogRow(row) {
     categoryCode: row.category_code,
     minAgeMonths: row.min_age_months,
     maxAgeMonths: row.max_age_months,
-    route: row.engine_key,
+    engineKey: row.engine_key,
+    respondentType: row.respondent_type,
+    metadata: row.metadata || {},
+    route: specializedRoute,
     status: row.implementation_status,
-    available: row.implementation_status === 'active' && Boolean(row.engine_key),
+    available: ['active', 'testing'].includes(row.implementation_status)
+      && (Boolean(specializedRoute) || isRenderableTestEngine(row.engine_key)),
   };
+}
+
+function getTestPath(evaluationId, test) {
+  if (!test?.available) return null;
+  if (isRenderableTestEngine(test.engineKey)) {
+    return `/evaluations/${evaluationId}/tests/${test.code}`;
+  }
+  return test.route ? `/evaluations/${evaluationId}/${test.route}` : null;
 }
 
 export default function EvaluationDetail() {
@@ -95,22 +114,31 @@ export default function EvaluationDetail() {
   const [evaluation, setEvaluation] = useState(null);
   const [testResults, setTestResults] = useState([]);
   const [tests, setTests] = useState([]);
+  const [testResponseLinks, setTestResponseLinks] = useState([]);
   const [catalogError, setCatalogError] = useState('');
   const [loading, setLoading] = useState(true);
+  const [sharingTest, setSharingTest] = useState(null);
 
   useEffect(() => { load(); }, [evalId]);
 
   async function load() {
     setLoading(true);
-    const [evaluationResult, testResultsResult, catalogResult] = await Promise.all([
+    const [
+      evaluationResult,
+      testResultsResult,
+      catalogResult,
+      responseLinksResult,
+    ] = await Promise.all([
       getEvaluation(evalId),
       supabase.from('test_results').select('test_code, computed_scores, updated_at')
         .eq('evaluation_id', evalId),
       getTestCatalog(),
+      getTestResponseLinks(evalId),
     ]);
 
     setEvaluation(evaluationResult.data);
     setTestResults(testResultsResult.data || []);
+    setTestResponseLinks(responseLinksResult.data || []);
     if (catalogResult.error) {
       setTests([]);
       setCatalogError(`Não foi possível carregar o catálogo de testes: ${catalogResult.error.message}`);
@@ -217,17 +245,18 @@ export default function EvaluationDetail() {
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
             {testResults.map(t => {
               const info = testsByCode.get(t.test_code);
+              const path = getTestPath(evalId, info);
               return (
                 <div
                   key={t.test_code}
-                  onClick={() => info?.route && navigate(`/evaluations/${evalId}/${info.route}`)}
+                  onClick={() => path && navigate(path)}
                   style={{
                     display: 'flex', alignItems: 'center', gap: 6,
                     padding: '5px 12px', borderRadius: 20,
                     background: 'var(--accent-bg)', color: 'var(--accent)',
                     border: '1px solid var(--accent-border)',
                     fontSize: 12, fontWeight: 500,
-                    cursor: info?.route ? 'pointer' : 'default',
+                    cursor: path ? 'pointer' : 'default',
                   }}
                 >
                   <CheckCircle size={12} />
@@ -280,13 +309,22 @@ export default function EvaluationDetail() {
                 (idadeNaAplicacao === null || idadeNaAplicacao < 6 || idadeNaAplicacao > 16);
               const canOpen = t.available && (applied || !foraDaFaixaWisc);
               const status = IMPLEMENTATION_STATUS[t.status] || IMPLEMENTATION_STATUS.catalogued;
+              const path = getTestPath(evalId, t);
+              const canShare = canEdit
+                && evaluation.status !== 'concluida'
+                && isShareableTestForm(t);
+              const pendingResponses = getPendingTestResponses(testResponseLinks, t.code);
+              const nextPendingResponse = pendingResponses[0];
+              const canReview = canEdit
+                && evaluation.status !== 'concluida'
+                && Boolean(nextPendingResponse);
 
               return (
                 <div
                   key={t.code}
                   onClick={() => {
                     if (!canEdit && !applied) return;
-                    if (canOpen && t.route) navigate(`/evaluations/${evalId}/${t.route}`);
+                    if (canOpen && path) navigate(path);
                   }}
                   style={{
                     display: 'flex', alignItems: 'center', justifyContent: 'space-between',
@@ -331,6 +369,44 @@ export default function EvaluationDetail() {
                   </div>
 
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    {canReview && (
+                      <button
+                        type="button"
+                        onClick={event => {
+                          event.stopPropagation();
+                          navigate(
+                            `/evaluations/${evalId}/tests/${t.code}?responseLink=${nextPendingResponse.id}`
+                          );
+                        }}
+                        style={{
+                          display: 'flex', alignItems: 'center', gap: 5,
+                          padding: '6px 9px', borderRadius: 7,
+                          color: '#fff', background: 'var(--success)',
+                          fontSize: 11, fontWeight: 600,
+                        }}
+                      >
+                        <CheckCircle size={12} />
+                        Revisar resposta{pendingResponses.length > 1 ? ` (${pendingResponses.length})` : ''}
+                      </button>
+                    )}
+                    {canShare && (
+                      <button
+                        type="button"
+                        onClick={event => {
+                          event.stopPropagation();
+                          setSharingTest(t);
+                        }}
+                        style={{
+                          display: 'flex', alignItems: 'center', gap: 5,
+                          padding: '6px 9px', borderRadius: 7,
+                          border: '1px solid var(--accent-border)',
+                          color: 'var(--accent)', background: 'var(--accent-bg)',
+                          fontSize: 11, fontWeight: 550,
+                        }}
+                      >
+                        <Send size={12} /> Compartilhar
+                      </button>
+                    )}
                     {applied && result?.computed_scores?.qiTotal?.qi && (
                       <span style={{
                         fontSize: 12, fontWeight: 600, color: 'var(--accent)',
@@ -348,6 +424,16 @@ export default function EvaluationDetail() {
           );
         })}
       </div>
+
+      {sharingTest && (
+        <TestShareDialog
+          evaluationId={evalId}
+          formCode={sharingTest.code}
+          formName={sharingTest.name}
+          patientName={patient?.nome || 'paciente'}
+          onClose={() => setSharingTest(null)}
+        />
+      )}
     </div>
   );
 }

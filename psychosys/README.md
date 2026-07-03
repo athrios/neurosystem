@@ -163,6 +163,10 @@ psychosys/
 * [x] Controle de status da avaliação
 * [x] Status disponíveis: em andamento e concluída
 * [x] Listagem dos testes por categoria
+* [x] Catálogo dinâmico com 46 instrumentos e 56 formulários
+* [x] Formulário genérico versionado para instrumentos simples e intermediários
+* [x] Motor declarativo seguro, sem execução de código armazenado no banco
+* [x] SCARED, SDQ, SNAP-IV e QEDP preparados em modo de validação
 
 ### 6.4 WISC-IV
 
@@ -363,3 +367,14 @@ migrations/README.md
 Este documento representa a documentação inicial consolidada do projeto PsychoSys / NeuroSystem.
 
 Informações técnicas ainda não detalhadas devem ser registradas como pendentes até validação ou implementação correspondente.
+
+---
+
+## 15. Compartilhamento de testes
+
+Testes destinados a paciente, responsável, professor ou informante podem gerar
+links individuais por respondente. O preenchimento público utiliza uma pergunta
+por etapa, salvamento automático e revisão profissional antes da consolidação do
+resultado.
+
+Detalhes: `docs/COMPARTILHAMENTO_TESTES.md`.

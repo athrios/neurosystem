@@ -72,6 +72,12 @@ input, select, textarea {
   border-color: var(--accent-border) !important;
 }
 
+.generic-test-grid {
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  gap: 16px;
+}
+
 .report-print-text {
   display: none;
   white-space: pre-wrap;
@@ -136,5 +142,11 @@ input, select, textarea {
 
   .anamnesis-option {
     transition: none !important;
+  }
+}
+
+@media (max-width: 720px) {
+  .generic-test-grid > * {
+    grid-column: 1 / -1 !important;
   }
 }
