@@ -51,9 +51,23 @@ export function respondentLabel(type) {
   return RESPONDENT_LABELS[type] || type || 'Respondente';
 }
 
+export function effectiveTestResponseStatus(link, now = new Date()) {
+  if (
+    ['shared', 'in_progress', 'submitted'].includes(link?.status)
+    && link?.expires_at
+    && new Date(link.expires_at).getTime() <= now.getTime()
+  ) {
+    return 'expired';
+  }
+  return link?.status;
+}
+
 export function getPendingTestResponses(links, formCode) {
   return (links || [])
-    .filter(link => link.form_code === formCode && link.status === 'submitted')
+    .filter(link => (
+      link.form_code === formCode
+      && effectiveTestResponseStatus(link) === 'submitted'
+    ))
     .sort((left, right) => (
       new Date(left.responded_at || left.created_at || 0)
       - new Date(right.responded_at || right.created_at || 0)

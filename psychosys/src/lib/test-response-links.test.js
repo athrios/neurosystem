@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {
   applyRespondentIdentity,
   createPublicTestDefinition,
+  effectiveTestResponseStatus,
   getPendingTestResponses,
   getRespondentOptions,
   isShareableTestForm,
@@ -106,4 +107,16 @@ test('lista somente respostas pendentes do teste selecionado', () => {
   ], 'QEDP');
 
   assert.deepEqual(pending.map(link => link.id), ['oldest', 'latest']);
+});
+
+test('considera expirado um link ativo cuja validade terminou', () => {
+  const now = new Date('2026-07-02T12:00:00Z');
+  assert.equal(effectiveTestResponseStatus({
+    status: 'shared',
+    expires_at: '2026-07-02T11:59:59Z',
+  }, now), 'expired');
+  assert.equal(effectiveTestResponseStatus({
+    status: 'reviewed',
+    expires_at: '2026-07-01T00:00:00Z',
+  }, now), 'reviewed');
 });

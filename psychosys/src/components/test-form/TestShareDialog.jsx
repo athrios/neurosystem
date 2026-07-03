@@ -14,6 +14,7 @@ import {
   updateTestResponseLink,
 } from '../../lib/test-catalog';
 import {
+  effectiveTestResponseStatus,
   getRespondentOptions,
   respondentLabel,
 } from '../../lib/test-response-links';
@@ -295,8 +296,9 @@ export default function TestShareDialog({
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
                   {links.map(link => {
-                    const status = STATUS[link.status] || STATUS.shared;
-                    const canCopy = ['shared', 'in_progress'].includes(link.status);
+                    const effectiveStatus = effectiveTestResponseStatus(link);
+                    const status = STATUS[effectiveStatus] || STATUS.shared;
+                    const canCopy = ['shared', 'in_progress'].includes(effectiveStatus);
                     return (
                       <article key={link.id} style={{
                         display: 'flex', justifyContent: 'space-between',
@@ -318,6 +320,7 @@ export default function TestShareDialog({
                             {respondentLabel(link.respondent_type)}
                             {link.relationship ? ` · ${link.relationship}` : ''}
                             {' · '}{formatDate(link.created_at)}
+                            {link.expires_at ? ` · vence em ${formatDate(link.expires_at)}` : ''}
                           </div>
                         </div>
                         <div style={{ display: 'flex', gap: 6 }}>

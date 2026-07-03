@@ -67,6 +67,7 @@ export function getTestResponseLinks(evaluationId, formCode = null) {
       shared_at,
       responded_at,
       reviewed_at,
+      expires_at,
       created_at
     `)
     .eq('evaluation_id', evaluationId)
