@@ -4,13 +4,15 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../App';
 import {
   getPatient, getEvaluations, createEvaluation,
-  updatePatient, deletePatient, getAnamneses, getAnamnesesForReport
+  updatePatient, deletePatient, deleteEvaluation,
+  getAnamneses, getAnamnesesForReport, deleteAnamnesis
 } from '../lib/supabase';
 import {
   ArrowLeft, Plus, ClipboardList, Calendar, ChevronRight,
   Edit2, Trash2, CheckCircle, Clock, X, AlertTriangle, FileText
 } from 'lucide-react';
 import { generateRelevantAnamnesisText } from '../lib/pre-report-engine';
+import { dateKeyInTimeZone } from '../lib/date-utils';
 
 function calcIdade(dob) {
   if (!dob) return null;
@@ -29,6 +31,83 @@ function InfoRow({ label, value }) {
       <span style={{ fontSize: 13, color: value ? 'var(--text)' : 'var(--text-3)' }}>
         {value || '—'}
       </span>
+    </div>
+  );
+}
+
+function HistoryDeleteModal({
+  target,
+  deleting,
+  error,
+  onClose,
+  onConfirm,
+}) {
+  const isScale = target.type === 'scale';
+  return (
+    <div
+      role="presentation"
+      onMouseDown={event => event.target === event.currentTarget && !deleting && onClose()}
+      style={{
+        position: 'fixed', inset: 0, zIndex: 110,
+        display: 'grid', placeItems: 'center', padding: 20,
+        background: 'rgba(0,0,0,.4)',
+      }}
+    >
+      <section
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="history-delete-title"
+        style={{
+          width: 'min(440px, 100%)', padding: 24,
+          borderRadius: 14, background: 'var(--surface)',
+          boxShadow: 'var(--shadow-lg)',
+        }}
+      >
+        <AlertTriangle size={30} color="var(--danger)" />
+        <h3 id="history-delete-title" style={{ fontSize: 16, fontWeight: 600, marginTop: 12 }}>
+          Excluir {isScale ? 'aplicação da escala' : 'avaliação em andamento'}?
+        </h3>
+        <p style={{ fontSize: 13, color: 'var(--text-2)', lineHeight: 1.55, marginTop: 8 }}>
+          <strong>{target.name}</strong> será removida permanentemente do histórico.
+          {isScale
+            ? ' Se existir um link compartilhado, ele deixará de funcionar.'
+            : ' Testes, resultados e links vinculados a esta avaliação também serão removidos.'}
+        </p>
+        {error && (
+          <div role="alert" style={{
+            marginTop: 12, padding: '9px 11px', borderRadius: 8,
+            color: 'var(--danger)', background: 'var(--danger-bg)', fontSize: 12,
+          }}>
+            {error}
+          </div>
+        )}
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 20 }}>
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={deleting}
+            style={{
+              padding: '8px 14px', borderRadius: 8,
+              border: '1px solid var(--border)', color: 'var(--text-2)',
+            }}
+          >
+            Cancelar
+          </button>
+          <button
+            type="button"
+            onClick={onConfirm}
+            disabled={deleting}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 6,
+              padding: '8px 14px', borderRadius: 8,
+              background: 'var(--danger)', color: '#fff',
+              opacity: deleting ? 0.6 : 1,
+            }}
+          >
+            <Trash2 size={13} /> {deleting ? 'Excluindo...' : 'Excluir'}
+          </button>
+        </div>
+      </section>
     </div>
   );
 }
@@ -225,6 +304,9 @@ export default function PatientDetail() {
   const [creating, setCreating] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState(false);
   const [editing, setEditing] = useState(false);
+  const [historyDeleteTarget, setHistoryDeleteTarget] = useState(null);
+  const [historyDeleting, setHistoryDeleting] = useState(false);
+  const [historyDeleteError, setHistoryDeleteError] = useState('');
 
   useEffect(() => {
     load();
@@ -249,7 +331,7 @@ export default function PatientDetail() {
     const { data, error } = await createEvaluation({
       patient_id: id,
       psicologo_id: profile.id,
-      data_aplicacao: new Date().toISOString().split('T')[0],
+      data_aplicacao: dateKeyInTimeZone(),
       status: 'em_andamento',
     });
     setCreating(false);
@@ -259,6 +341,31 @@ export default function PatientDetail() {
   async function handleDelete() {
     await deletePatient(id);
     navigate('/patients');
+  }
+
+  async function handleHistoryDelete() {
+    if (!historyDeleteTarget) return;
+    setHistoryDeleting(true);
+    setHistoryDeleteError('');
+    const result = historyDeleteTarget.type === 'scale'
+      ? await deleteAnamnesis(historyDeleteTarget.id)
+      : await deleteEvaluation(historyDeleteTarget.id);
+    setHistoryDeleting(false);
+
+    if (result.error || !result.data) {
+      setHistoryDeleteError(
+        result.error?.message
+        || 'A aplicação não está mais em andamento ou não pôde ser excluída.'
+      );
+      return;
+    }
+
+    if (historyDeleteTarget.type === 'scale') {
+      setAnamneses(current => current.filter(item => item.id !== historyDeleteTarget.id));
+    } else {
+      setEvaluations(current => current.filter(item => item.id !== historyDeleteTarget.id));
+    }
+    setHistoryDeleteTarget(null);
   }
 
   if (loading) {
@@ -447,38 +554,69 @@ export default function PatientDetail() {
               revisada: 'Revisada',
             };
             const completed = ['respondida', 'revisada'].includes(anamnesis.status);
+            const canDeleteScale = canEdit
+              && ['rascunho', 'compartilhada'].includes(anamnesis.status);
             return (
-              <button
-                type="button"
+              <div
                 key={anamnesis.id}
-                onClick={() => navigate(`/escalas/${anamnesis.id}`)}
                 style={{
                   width: '100%', display: 'flex', alignItems: 'center',
                   justifyContent: 'space-between', textAlign: 'left', padding: '13px 20px',
                   borderBottom: index < anamneses.length - 1 ? '1px solid var(--border)' : 'none',
                 }}
               >
-                <div style={{ display: 'flex', alignItems: 'center', gap: 11 }}>
-                  <div style={{
-                    width: 34, height: 34, borderRadius: 8,
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    background: completed ? 'var(--success-bg)' : 'var(--accent-bg)',
-                  }}>
-                    {completed
-                      ? <CheckCircle size={16} color="var(--success)" />
-                      : <ClipboardList size={16} color="var(--accent)" />}
-                  </div>
-                  <div>
-                    <div style={{ fontSize: 13, fontWeight: 500 }}>{anamnesis.nome}</div>
-                    <div style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 1 }}>
-                      {statusLabels[anamnesis.status] || anamnesis.status}
-                      {' · '}
-                      {new Date(anamnesis.created_at).toLocaleDateString('pt-BR')}
+                <button
+                  type="button"
+                  onClick={() => navigate(`/escalas/${anamnesis.id}`)}
+                  style={{
+                    flex: 1, minWidth: 0, display: 'flex', alignItems: 'center',
+                    justifyContent: 'space-between', textAlign: 'left',
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 11 }}>
+                    <div style={{
+                      width: 34, height: 34, borderRadius: 8,
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      background: completed ? 'var(--success-bg)' : 'var(--accent-bg)',
+                    }}>
+                      {completed
+                        ? <CheckCircle size={16} color="var(--success)" />
+                        : <ClipboardList size={16} color="var(--accent)" />}
+                    </div>
+                    <div>
+                      <div style={{ fontSize: 13, fontWeight: 500 }}>{anamnesis.nome}</div>
+                      <div style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 1 }}>
+                        {statusLabels[anamnesis.status] || anamnesis.status}
+                        {' · '}
+                        {new Date(anamnesis.created_at).toLocaleDateString('pt-BR')}
+                      </div>
                     </div>
                   </div>
-                </div>
-                <ChevronRight size={15} color="var(--text-3)" />
-              </button>
+                  <ChevronRight size={15} color="var(--text-3)" />
+                </button>
+                {canDeleteScale && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setHistoryDeleteError('');
+                      setHistoryDeleteTarget({
+                        type: 'scale',
+                        id: anamnesis.id,
+                        name: anamnesis.nome,
+                      });
+                    }}
+                    aria-label={`Excluir aplicação ${anamnesis.nome}`}
+                    title="Excluir aplicação em andamento"
+                    style={{
+                      width: 32, height: 32, display: 'grid', placeItems: 'center',
+                      marginLeft: 10, borderRadius: 7,
+                      color: 'var(--danger)', background: 'var(--danger-bg)',
+                    }}
+                  >
+                    <Trash2 size={13} />
+                  </button>
+                )}
+              </div>
             );
           })
         )}
@@ -555,6 +693,9 @@ export default function PatientDetail() {
         ) : (
           evaluations.map((ev, i) => {
             const tests = ev.test_results?.map(t => t.test_code.replace('_', '-')) || [];
+            const evaluationDate = new Date(
+              `${ev.data_aplicacao}T00:00:00`
+            ).toLocaleDateString('pt-BR');
             return (
               <div
                 key={ev.id}
@@ -581,7 +722,7 @@ export default function PatientDetail() {
                   </div>
                   <div>
                     <div style={{ fontSize: 13, fontWeight: 500 }}>
-                      Avaliação de {new Date(ev.data_aplicacao + 'T00:00:00').toLocaleDateString('pt-BR')}
+                      Avaliação de {evaluationDate}
                     </div>
                     <div style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 1 }}>
                       {tests.length > 0
@@ -590,7 +731,32 @@ export default function PatientDetail() {
                     </div>
                   </div>
                 </div>
-                <ChevronRight size={15} color="var(--text-3)" />
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  {canEdit && ev.status === 'em_andamento' && (
+                    <button
+                      type="button"
+                      onClick={event => {
+                        event.stopPropagation();
+                        setHistoryDeleteError('');
+                        setHistoryDeleteTarget({
+                          type: 'evaluation',
+                          id: ev.id,
+                          name: `Avaliação de ${evaluationDate}`,
+                        });
+                      }}
+                      aria-label={`Excluir avaliação de ${evaluationDate}`}
+                      title="Excluir avaliação em andamento"
+                      style={{
+                        width: 32, height: 32, display: 'grid', placeItems: 'center',
+                        borderRadius: 7,
+                        color: 'var(--danger)', background: 'var(--danger-bg)',
+                      }}
+                    >
+                      <Trash2 size={13} />
+                    </button>
+                  )}
+                  <ChevronRight size={15} color="var(--text-3)" />
+                </div>
               </div>
             );
           })
@@ -637,6 +803,20 @@ export default function PatientDetail() {
             setPatient(current => ({ ...current, ...updatedPatient }));
             setEditing(false);
           }}
+        />
+      )}
+
+      {historyDeleteTarget && (
+        <HistoryDeleteModal
+          target={historyDeleteTarget}
+          deleting={historyDeleting}
+          error={historyDeleteError}
+          onClose={() => {
+            if (historyDeleting) return;
+            setHistoryDeleteTarget(null);
+            setHistoryDeleteError('');
+          }}
+          onConfirm={handleHistoryDelete}
         />
       )}
 

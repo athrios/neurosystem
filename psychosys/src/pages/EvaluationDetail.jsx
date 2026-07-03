@@ -10,8 +10,9 @@ import {
   isShareableTestForm,
 } from '../lib/test-response-links';
 import TestShareDialog from '../components/test-form/TestShareDialog';
+import TestDeleteDialog from '../components/test-form/TestDeleteDialog';
 import {
-  ArrowLeft, Brain, CheckCircle, ChevronRight, FileText, Send, User
+  ArrowLeft, Brain, CheckCircle, ChevronRight, FileText, Send, Trash2, User
 } from 'lucide-react';
 
 const CATEGORY_COLORS = {
@@ -118,6 +119,7 @@ export default function EvaluationDetail() {
   const [catalogError, setCatalogError] = useState('');
   const [loading, setLoading] = useState(true);
   const [sharingTest, setSharingTest] = useState(null);
+  const [deletingTest, setDeletingTest] = useState(null);
 
   useEffect(() => { load(); }, [evalId]);
 
@@ -261,6 +263,27 @@ export default function EvaluationDetail() {
                 >
                   <CheckCircle size={12} />
                   {info?.name || t.test_code.replace('_', '-')}
+                  {canEdit && evaluation.status !== 'concluida' && (
+                    <button
+                      type="button"
+                      onClick={event => {
+                        event.stopPropagation();
+                        setDeletingTest({
+                          code: t.test_code,
+                          name: info?.name || t.test_code.replace('_', '-'),
+                        });
+                      }}
+                      aria-label={`Excluir ${info?.name || t.test_code}`}
+                      title="Excluir teste aplicado"
+                      style={{
+                        width: 22, height: 22, display: 'grid', placeItems: 'center',
+                        marginLeft: 2, borderRadius: 6,
+                        color: 'var(--danger)', background: 'var(--danger-bg)',
+                      }}
+                    >
+                      <Trash2 size={11} />
+                    </button>
+                  )}
                 </div>
               );
             })}
@@ -432,6 +455,18 @@ export default function EvaluationDetail() {
           formName={sharingTest.name}
           patientName={patient?.nome || 'paciente'}
           onClose={() => setSharingTest(null)}
+        />
+      )}
+
+      {deletingTest && (
+        <TestDeleteDialog
+          evaluationId={evalId}
+          test={deletingTest}
+          onClose={() => setDeletingTest(null)}
+          onDeleted={() => {
+            setDeletingTest(null);
+            load();
+          }}
         />
       )}
     </div>

@@ -111,6 +111,13 @@ export function updateTestResponseLink(id, updates) {
     .single();
 }
 
+export function deleteAppliedTest(evaluationId, formCode) {
+  return supabase.rpc('delete_applied_test', {
+    p_evaluation_id: evaluationId,
+    p_form_code: formCode,
+  });
+}
+
 export function getSharedTestResponse(token) {
   return supabase.rpc('get_shared_test_response', { p_token: token });
 }

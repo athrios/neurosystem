@@ -5,7 +5,8 @@ import {
   Printer, RefreshCw, Save, Trash2,
 } from 'lucide-react';
 import {
-  PolarAngleAxis, PolarGrid, Radar, RadarChart, ResponsiveContainer, Tooltip,
+  Bar, BarChart, CartesianGrid, PolarAngleAxis, PolarGrid, Radar, RadarChart,
+  ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from 'recharts';
 import { useAuth } from '../App';
 import LogoEditorModal from '../components/LogoEditorModal';
@@ -20,6 +21,7 @@ import {
   generateRelevantAnamnesisText,
   generateSummaryText,
 } from '../lib/pre-report-engine';
+import { listAdaptedTestResults } from '../lib/pre-report-test-adapters';
 
 const EMPTY_REPORT = {
   description_demand: '',
@@ -108,6 +110,45 @@ function WiscChart({ result }) {
   );
 }
 
+function TestProfileChart({ adapted }) {
+  if (!adapted.chartData.length) return null;
+  const height = Math.max(210, adapted.chartData.length * 38 + 70);
+  return (
+    <div style={{
+      height, marginTop: 16, border: '1px solid var(--border)',
+      borderRadius: 10, padding: '12px 10px 8px',
+      breakInside: 'avoid-page',
+    }}>
+      <div style={{ fontSize: 12, fontWeight: 600, textAlign: 'center', marginBottom: 6 }}>
+        Perfil de resultados - {adapted.shortName}
+      </div>
+      <ResponsiveContainer width="100%" height="90%">
+        <BarChart
+          data={adapted.chartData}
+          layout="vertical"
+          margin={{ top: 4, right: 28, bottom: 4, left: 12 }}
+        >
+          <CartesianGrid strokeDasharray="3 3" stroke="#E8E5DD" horizontal={false} />
+          <XAxis type="number" tick={{ fontSize: 10 }} />
+          <YAxis
+            type="category"
+            dataKey="label"
+            width={150}
+            tick={{ fontSize: 10 }}
+          />
+          <Tooltip
+            formatter={(value, _name, item) => [
+              `${value}${item.payload.classification ? ` · ${item.payload.classification}` : ''}`,
+              'Escore',
+            ]}
+          />
+          <Bar dataKey="value" fill="#534AB7" radius={[0, 5, 5, 0]} />
+        </BarChart>
+      </ResponsiveContainer>
+    </div>
+  );
+}
+
 export default function PreReport() {
   const { patientId } = useParams();
   const navigate = useNavigate();
@@ -141,7 +182,7 @@ export default function PreReport() {
   const generated = useMemo(() => {
     if (!patient) return EMPTY_REPORT;
     const anamnesisText = generateRelevantAnamnesisText(patient, anamneses);
-    const formResults = generateFormResultsText(patient, anamneses);
+    const formResults = generateFormResultsText(patient, anamneses, evaluations);
     return {
       anamnesis_text: anamnesisText,
       procedure_notes: generateProcedureText(evaluations, anamneses),
@@ -171,7 +212,11 @@ export default function PreReport() {
         setReport({ ...EMPTY_REPORT, ...reportResult.data });
       } else if (loadedPatient) {
         const anamnesisText = generateRelevantAnamnesisText(loadedPatient, loadedAnamneses);
-        const formResults = generateFormResultsText(loadedPatient, loadedAnamneses);
+        const formResults = generateFormResultsText(
+          loadedPatient,
+          loadedAnamneses,
+          loadedEvaluations,
+        );
         setReport({
           ...EMPTY_REPORT,
           anamnesis_text: anamnesisText,
@@ -240,6 +285,7 @@ export default function PreReport() {
   }
 
   const testResults = evaluations.flatMap(evaluation => evaluation.test_results || []);
+  const adaptedTestResults = listAdaptedTestResults(evaluations);
   const logoJustify = {
     left: 'flex-start',
     center: 'center',
@@ -479,6 +525,12 @@ export default function PreReport() {
         >
           {testResults.filter(result => result.test_code === 'WISC_IV').map((result, index) => (
             <WiscChart key={`wisc-chart-${index}`} result={result} />
+          ))}
+          {adaptedTestResults.map((adapted, index) => (
+            <TestProfileChart
+              key={`${adapted.code}-chart-${index}`}
+              adapted={adapted}
+            />
           ))}
           <h3 style={{ fontSize: 13, margin: '22px 0 8px' }}>
             Resultados dos testes realizados por formulários

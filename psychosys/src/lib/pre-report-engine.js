@@ -1,3 +1,9 @@
+import {
+  generateAdaptedTestAnalysisText,
+  generateAdaptedTestResultsText,
+  PRE_REPORT_TEST_NAMES,
+} from './pre-report-test-adapters.js';
+
 function firstName(patient) {
   return patient?.nome?.trim().split(/\s+/)[0] || 'O paciente';
 }
@@ -130,9 +136,16 @@ export function resultForAnamnesis(patient, record) {
   }
 }
 
-export function generateFormResultsText(patient, records) {
-  if (!records.length) return 'Não há formulários respondidos até o momento.';
-  return records.map(record => resultForAnamnesis(patient, record)).join('\n\n');
+export function generateFormResultsText(patient, records, evaluations = []) {
+  const scaleResults = records.map(record => resultForAnamnesis(patient, record));
+  const testResults = generateAdaptedTestResultsText(evaluations);
+  const sections = [
+    scaleResults.length ? scaleResults.join('\n\n') : '',
+    testResults,
+  ].filter(Boolean);
+  return sections.length
+    ? sections.join('\n\n')
+    : 'Não há formulários ou testes calculados até o momento.';
 }
 
 export function generateRelevantAnamnesisText(patient, records) {
@@ -160,6 +173,7 @@ export function generateRelevantAnamnesisText(patient, records) {
 }
 
 const TEST_NAMES = {
+  ...PRE_REPORT_TEST_NAMES,
   WISC_IV: 'Escala de Inteligência Wechsler para Crianças - WISC-IV',
   WAIS_III: 'Escala de Inteligência Wechsler para Adultos - WAIS-III',
   WASI: 'Escala Wechsler Abreviada de Inteligência - WASI',
@@ -184,11 +198,12 @@ export function generateAnalysisText(patient, evaluations) {
   const wiscResults = evaluations.flatMap(evaluation => (
     evaluation.test_results?.filter(result => result.test_code === 'WISC_IV') || []
   ));
-  if (!wiscResults.length) {
+  const adaptedAnalysis = generateAdaptedTestAnalysisText(evaluations);
+  if (!wiscResults.length && !adaptedAnalysis) {
     return 'A análise dos resultados deverá integrar os dados quantitativos, qualitativos e comportamentais obtidos durante a avaliação.';
   }
 
-  return wiscResults.map(result => {
+  const wiscAnalysis = wiscResults.map(result => {
     const scores = result.computed_scores || {};
     const total = scores.qiTotal;
     const indices = Object.entries(scores.indexScores || {})
@@ -198,6 +213,8 @@ export function generateAnalysisText(patient, evaluations) {
       + `${total?.qi ? `O resultado global foi QI ${total.qi} (${total.classificacao || 'sem classificação'}). ` : ''}`
       + `${indices.length ? `Os índices obtidos foram: ${indices.join('; ')}.` : ''}`;
   }).join('\n\n');
+
+  return [wiscAnalysis, adaptedAnalysis].filter(Boolean).join('\n\n');
 }
 
 export function generateSummaryText(patient, anamnesisText, formResultsText, evaluations) {

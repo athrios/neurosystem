@@ -106,6 +106,16 @@ export async function updateEvaluation(id, data) {
   return supabase.from('evaluations').update(data).eq('id', id).select().single();
 }
 
+export async function deleteEvaluation(id) {
+  return supabase
+    .from('evaluations')
+    .delete()
+    .eq('id', id)
+    .eq('status', 'em_andamento')
+    .select('id')
+    .maybeSingle();
+}
+
 // ============================================================
 // ANAMNESES
 // ============================================================
@@ -144,7 +154,13 @@ export async function updateAnamnesis(id, data) {
 }
 
 export async function deleteAnamnesis(id) {
-  return supabase.from('anamneses').delete().eq('id', id);
+  return supabase
+    .from('anamneses')
+    .delete()
+    .eq('id', id)
+    .in('status', ['rascunho', 'compartilhada'])
+    .select('id')
+    .maybeSingle();
 }
 
 export async function getSharedAnamnesis(token) {

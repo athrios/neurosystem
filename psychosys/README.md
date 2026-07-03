@@ -378,3 +378,22 @@ por etapa, salvamento automático e revisão profissional antes da consolidaçã
 resultado.
 
 Detalhes: `docs/COMPARTILHAMENTO_TESTES.md`.
+
+---
+
+## 16. Exclusão de testes aplicados
+
+Resultados de testes podem ser excluídos pelo profissional responsável mediante
+confirmação, com revogação dos links relacionados e registro de auditoria. A
+estrutura de senha individual está preparada, mas ainda não foi habilitada.
+
+Detalhes: `docs/EXCLUSAO_TESTES_APLICADOS.md`.
+
+---
+
+## 17. Adaptadores do pré-laudo
+
+SCARED, SDQ, SNAP-IV e QEDP possuem adaptadores para procedimento, análise,
+resultados textuais e gráficos de perfil no pré-laudo.
+
+Detalhes: `docs/ADAPTADORES_PRE_LAUDO.md`.

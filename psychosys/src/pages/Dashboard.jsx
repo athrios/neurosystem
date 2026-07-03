@@ -172,7 +172,7 @@ export default function Dashboard() {
                   <div>
                     <div style={{ fontSize: 13, fontWeight: 500 }}>{ev.patients?.nome}</div>
                     <div style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 1 }}>
-                      {new Date(ev.data_aplicacao).toLocaleDateString('pt-BR')}
+                      {new Date(`${ev.data_aplicacao}T00:00:00`).toLocaleDateString('pt-BR')}
                     </div>
                   </div>
                 </div>
