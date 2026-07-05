@@ -1,4 +1,11 @@
 const NON_SHAREABLE_RESPONDENTS = new Set(['professional', 'interview']);
+const THIRD_PARTY_RESPONDENTS = new Set([
+  'parent',
+  'caregiver',
+  'teacher',
+  'informant',
+  'other',
+]);
 
 const RESPONDENT_LABELS = {
   patient: 'Paciente',
@@ -23,6 +30,12 @@ export function isShareableTestForm(form) {
     && form.metadata?.public_response_enabled === true
     && ['active', 'testing'].includes(form.status || form.implementation_status)
     && (form.available ?? true)
+  );
+}
+
+export function isThirdPartyTestForm(form) {
+  return THIRD_PARTY_RESPONDENTS.has(
+    form?.respondentType || form?.respondent_type
   );
 }
 
@@ -89,7 +102,9 @@ export function createPublicTestDefinition(definition) {
     sections: definition.sections
       .map(section => ({
         ...section,
-        fields: section.fields.filter(field => !IDENTITY_FIELD_IDS.has(field.id)),
+        fields: section.fields.filter(field => (
+          field.public !== false && !IDENTITY_FIELD_IDS.has(field.id)
+        )),
       }))
       .filter(section => section.fields.length > 0),
   };

@@ -24,6 +24,7 @@ import {
   updateTestResponseLink,
 } from '../lib/test-catalog';
 import { respondentLabel } from '../lib/test-response-links';
+import { canEditTestApplication } from '../lib/test-access';
 import { getEvaluation, getTestResult } from '../lib/supabase';
 
 function formatPatientAge(dateOfBirth, applicationDate) {
@@ -272,8 +273,7 @@ export default function GenericTest() {
   }
 
   const patient = evaluation.patients;
-  const canEdit = evaluation.status !== 'concluida'
-    && (profile?.role === 'master' || evaluation.psicologo_id === profile?.id);
+  const canEdit = canEditTestApplication({ evaluation, profile, form });
 
   return (
     <div style={{ padding: '24px 32px', maxWidth: 1050 }}>

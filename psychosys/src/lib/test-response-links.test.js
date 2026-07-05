@@ -7,6 +7,7 @@ import {
   getPendingTestResponses,
   getRespondentOptions,
   isShareableTestForm,
+  isThirdPartyTestForm,
 } from './test-response-links.js';
 
 test('libera compartilhamento apenas para formulários externos disponíveis', () => {
@@ -32,6 +33,14 @@ test('libera compartilhamento apenas para formulários externos disponíveis', (
     available: true,
     metadata: { public_response_enabled: false },
   }), false);
+});
+
+test('identifica somente responsáveis e informantes como terceiros', () => {
+  assert.equal(isThirdPartyTestForm({ respondentType: 'parent' }), true);
+  assert.equal(isThirdPartyTestForm({ respondentType: 'teacher' }), true);
+  assert.equal(isThirdPartyTestForm({ respondentType: 'other' }), true);
+  assert.equal(isThirdPartyTestForm({ respondentType: 'patient' }), false);
+  assert.equal(isThirdPartyTestForm({ respondentType: 'professional' }), false);
 });
 
 test('usa as opções de respondente definidas pelo próprio teste', () => {

@@ -7,12 +7,13 @@ import { getTestCatalog, getTestResponseLinks } from '../lib/test-catalog';
 import { isRenderableTestEngine } from '../lib/test-engine-registry';
 import {
   getPendingTestResponses,
+  isThirdPartyTestForm,
   isShareableTestForm,
 } from '../lib/test-response-links';
 import TestShareDialog from '../components/test-form/TestShareDialog';
 import TestDeleteDialog from '../components/test-form/TestDeleteDialog';
 import {
-  ArrowLeft, Brain, CheckCircle, ChevronRight, FileText, Send, Trash2, User
+  ArrowLeft, Brain, CheckCircle, ChevronRight, FileText, Send, Share2, Trash2, User
 } from 'lucide-react';
 
 const CATEGORY_COLORS = {
@@ -371,7 +372,10 @@ export default function EvaluationDetail() {
                         : <FileText size={15} color="var(--text-3)" />}
                     </div>
                     <div>
-                      <div style={{ fontSize: 13, fontWeight: 500, display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <div style={{
+                        fontSize: 13, fontWeight: 500, display: 'flex',
+                        alignItems: 'center', gap: 6, flexWrap: 'wrap',
+                      }}>
                         {t.name}
                         <span style={{
                           fontSize: 10, color: status.color, background: status.background,
@@ -379,6 +383,21 @@ export default function EvaluationDetail() {
                         }}>
                           {status.label}
                         </span>
+                        {isThirdPartyTestForm(t) && (
+                          <span
+                            title="Este teste é respondido por responsável, professor ou outro informante."
+                            style={{
+                              display: 'inline-flex', alignItems: 'center', gap: 4,
+                              fontSize: 10, color: 'var(--accent)',
+                              background: 'var(--accent-bg)',
+                              border: '1px solid var(--accent-border)',
+                              padding: '1px 6px', borderRadius: 10, fontWeight: 550,
+                            }}
+                          >
+                            <Share2 size={10} />
+                            Respondido por terceiros
+                          </span>
+                        )}
                         {foraDaFaixaWisc && !applied && (
                           <span style={{ fontSize: 10, color: 'var(--warning)', fontWeight: 500 }}>
                             fora da faixa etária

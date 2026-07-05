@@ -72,6 +72,7 @@ function normalizeField(field, path, knownIds) {
     placeholder: typeof field.placeholder === 'string' ? field.placeholder : '',
     required: Boolean(field.required),
     readOnly: Boolean(field.readOnly),
+    public: field.public !== false,
     defaultValue: field.defaultValue ?? (type === 'checkbox' ? false : ''),
     span: Number.isInteger(field.span) && field.span >= 1 && field.span <= 12
       ? field.span

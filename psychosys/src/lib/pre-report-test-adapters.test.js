@@ -51,7 +51,7 @@ test('prioriza estilos parentais na análise do QEDP e preserva fatores no resul
   assert.match(adapted.resultText, /Suporte e afeto: 3.2/);
 });
 
-test('reúne somente os quatro testes com cálculos compatíveis', () => {
+test('reúne somente testes com adaptadores e resultados calculados', () => {
   const evaluations = [{
     test_results: [
       result('SNAP_IV', {
@@ -67,3 +67,13 @@ test('reúne somente os quatro testes com cálculos compatíveis', () => {
   assert.match(generateAdaptedTestAnalysisText(evaluations), /Desatenção/);
 });
 
+test('adapta os novos testes para texto e gráficos do pré-laudo', () => {
+  const adapted = getPreReportTestAdapter(result('WAIS_III', {
+    full_iq: { label: 'Q.I. Total', value: 112, classification: 'Média superior' },
+    verbal_iq: { label: 'Q.I. Verbal', value: 108, classification: 'Média' },
+  }));
+
+  assert.match(adapted.analysisText, /Q\.I\. Total: 112/);
+  assert.match(adapted.resultText, /Média superior/);
+  assert.deepEqual(adapted.chartData.map(item => item.value), [112, 108]);
+});

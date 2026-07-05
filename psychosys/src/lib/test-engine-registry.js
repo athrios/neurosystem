@@ -3,6 +3,7 @@ import { calculateQedp } from './test-engines/qedp.js';
 import { calculateScared } from './test-engines/scared.js';
 import { calculateSdq } from './test-engines/sdq.js';
 import { calculateSnapIv } from './test-engines/snap-iv.js';
+import { calculateAssessment } from './test-engines/assessment.js';
 
 const ENGINES = {
   'generic-v1': {
@@ -24,6 +25,10 @@ const ENGINES = {
   'qedp-v1': {
     version: '1',
     calculate: calculateQedp,
+  },
+  'assessment-v1': {
+    version: '1',
+    calculate: calculateAssessment,
   },
 };
 
