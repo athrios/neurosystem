@@ -117,6 +117,7 @@ const ESCOLARIDADE = [
   'Ensino Superior', 'EJA - Educação de Jovens e Adultos',
   'FA - Ensino Fundamental de Adultos',
 ];
+const INSTITUICAO_ENSINO = ['Pública', 'Privado'];
 
 function EditPatientModal({ patient, onClose, onSaved }) {
   const [form, setForm] = useState({
@@ -124,7 +125,9 @@ function EditPatientModal({ patient, onClose, onSaved }) {
     data_nascimento: patient.data_nascimento || '',
     sexo: patient.sexo || 'Masculino',
     escolaridade: patient.escolaridade || '',
-    instituicao: patient.instituicao || '',
+    instituicao: INSTITUICAO_ENSINO.includes(patient.instituicao)
+      ? patient.instituicao
+      : 'Pública',
     serie_ano: patient.serie_ano || '',
     lateralidade: patient.lateralidade || 'Destro',
   });
@@ -252,11 +255,15 @@ function EditPatientModal({ patient, onClose, onSaved }) {
 
           <label style={{ fontSize: 12, color: 'var(--text-2)' }}>
             Instituição de ensino
-            <input
+            <select
               value={form.instituicao}
               onChange={set('instituicao')}
               style={{ ...fieldStyle, marginTop: 4 }}
-            />
+            >
+              {INSTITUICAO_ENSINO.map(option => (
+                <option key={option}>{option}</option>
+              ))}
+            </select>
           </label>
 
           <label style={{ fontSize: 12, color: 'var(--text-2)' }}>

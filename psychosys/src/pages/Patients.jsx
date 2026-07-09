@@ -10,6 +10,7 @@ const ESCOLARIDADE = [
   'Ensino Superior', 'EJA - Educação de Jovens e Adultos',
   'FA - Ensino Fundamental de Adultos',
 ];
+const INSTITUICAO_ENSINO = ['Pública', 'Privado'];
 
 function calcIdade(dob) {
   if (!dob) return null;
@@ -20,7 +21,7 @@ function calcIdade(dob) {
 function PatientModal({ onClose, onSave, profile }) {
   const [form, setForm] = useState({
     nome: '', data_nascimento: '', sexo: 'Masculino', escolaridade: '',
-    instituicao: '', serie_ano: '', lateralidade: 'Destro',
+    instituicao: 'Pública', serie_ano: '', lateralidade: 'Destro',
   });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -101,7 +102,7 @@ function PatientModal({ onClose, onSave, profile }) {
             {field('Escolaridade', 'escolaridade', 'select', ['', ...ESCOLARIDADE])}
             {field('Série/Ano', 'serie_ano')}
           </div>
-          {field('Instituição de ensino', 'instituicao')}
+          {field('Instituição de ensino', 'instituicao', 'select', INSTITUICAO_ENSINO)}
           {field('Lateralidade', 'lateralidade', 'select', ['Destro', 'Sinistro', 'Ambidestro'])}
 
           <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 8 }}>
