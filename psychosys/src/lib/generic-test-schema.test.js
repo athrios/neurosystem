@@ -66,3 +66,43 @@ test('valida obrigatoriedade, limites numéricos e opções permitidas', () => {
     first: 'O valor máximo é 10.',
   });
 });
+
+test('usa pergunta real importada quando o campo veio com rótulo técnico de pontuação', () => {
+  const definition = normalizeTestDefinition({
+    version: 1,
+    sections: [{
+      id: 'items',
+      title: 'Itens',
+      fields: [{
+        id: 'item_1',
+        type: 'radio',
+        label: '1. Pontuação do item:',
+        question_text: 'A criança demonstra dificuldade para manter atenção?',
+        options: [{ value: '0', label: 'Não' }, { value: '1', label: 'Sim' }],
+      }],
+    }],
+  });
+
+  assert.equal(
+    definition.sections[0].fields[0].label,
+    '1. A criança demonstra dificuldade para manter atenção?'
+  );
+});
+
+test('não exibe Pontuação do item como pergunta quando não há enunciado real disponível', () => {
+  const definition = normalizeTestDefinition({
+    version: 1,
+    sections: [{
+      id: 'items',
+      title: 'Itens',
+      fields: [{
+        id: 'item_2',
+        type: 'radio',
+        label: '2. Pontuação do item',
+        options: [{ value: '0', label: 'Não' }, { value: '1', label: 'Sim' }],
+      }],
+    }],
+  });
+
+  assert.equal(definition.sections[0].fields[0].label, 'Item 2');
+});

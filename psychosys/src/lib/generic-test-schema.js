@@ -23,6 +23,43 @@ function requireText(value, path) {
   return value.trim();
 }
 
+export function isScoringPromptLabel(value) {
+  return String(value || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLocaleLowerCase('pt-BR')
+    .replace(/[^a-z0-9 ]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .match(/^(?:\d+\s+)?(?:pontuacao|ponto|pontos|score) (?:do )?item$/) !== null;
+}
+
+function itemNumberFromFieldId(id) {
+  const match = String(id || '').match(/^item_(\d+)$/);
+  return match ? match[1] : null;
+}
+
+export function resolveFieldLabel(field, id) {
+  const label = requireText(field.label, `${id}.label`);
+  if (!isScoringPromptLabel(label.replace(/^\d+\.\s*/, ''))) return label;
+
+  const questionText = typeof field.question_text === 'string'
+    ? field.question_text.trim()
+    : typeof field.questionText === 'string'
+      ? field.questionText.trim()
+      : '';
+
+  if (questionText && !isScoringPromptLabel(questionText)) {
+    const number = itemNumberFromFieldId(id);
+    return number && !questionText.match(/^\d+\./)
+      ? `${number}. ${questionText}`
+      : questionText;
+  }
+
+  const number = itemNumberFromFieldId(id);
+  return number ? `Item ${number}` : label;
+}
+
 function normalizeOptions(options, path) {
   if (!Array.isArray(options) || options.length === 0) {
     throw new TestSchemaError(`${path} deve possuir ao menos uma opção.`);
@@ -67,7 +104,7 @@ function normalizeField(field, path, knownIds) {
   const normalized = {
     id,
     type,
-    label: requireText(field.label, `${path}.label`),
+    label: resolveFieldLabel(field, id),
     helpText: typeof field.helpText === 'string' ? field.helpText : '',
     placeholder: typeof field.placeholder === 'string' ? field.placeholder : '',
     required: Boolean(field.required),

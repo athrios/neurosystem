@@ -2,6 +2,14 @@ import React, { useState } from 'react';
 import { AlertTriangle, Loader2, LockKeyhole, Trash2, X } from 'lucide-react';
 import { deleteAppliedTest } from '../../lib/test-catalog';
 
+function deletionErrorMessage(result) {
+  if (result.error?.message) return result.error.message;
+  if (result.data?.code === 'invalid_password') {
+    return 'Senha inválida. Exclusão não autorizada.';
+  }
+  return result.data?.message || 'Não foi possível excluir o teste.';
+}
+
 export default function TestDeleteDialog({
   evaluationId,
   test,
@@ -23,11 +31,7 @@ export default function TestDeleteDialog({
     setDeleting(false);
 
     if (result.error || !result.data?.deleted) {
-      setError(
-        result.error?.message
-        || result.data?.message
-        || 'Não foi possível excluir o teste.'
-      );
+      setError(deletionErrorMessage(result));
       return;
     }
     onDeleted(result.data);

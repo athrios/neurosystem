@@ -4,6 +4,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../App';
 import { getEvaluation, supabase, updateEvaluation } from '../lib/supabase';
 import {
+  getCalculationRuns,
   getDeletedAppliedTests,
   getTestCatalog,
   getTestResponseLinks,
@@ -12,13 +13,15 @@ import { isRenderableTestEngine } from '../lib/test-engine-registry';
 import {
   getPendingTestResponses,
   isShareableTestForm,
+  respondentLabel,
 } from '../lib/test-response-links';
 import TestDeleteDialog from '../components/test-form/TestDeleteDialog';
 import DeletedTestsDialog from '../components/test-form/DeletedTestsDialog';
 import TestRestoreDialog from '../components/test-form/TestRestoreDialog';
+import TestShareDialog from '../components/test-form/TestShareDialog';
 import {
-  ArchiveRestore, ArrowLeft, Brain, CheckCircle, ChevronRight, FileText, Search,
-  Share2, Trash2, User, X
+  ArchiveRestore, ArrowLeft, Brain, CheckCircle, ChevronRight, FileText, History,
+  Search, Share2, Trash2, User, X
 } from 'lucide-react';
 
 const CATEGORY_COLORS = {
@@ -93,6 +96,33 @@ function formatAgeRange(test) {
   return 'faixa etária conforme manual';
 }
 
+function formatDateTime(value) {
+  if (!value) return 'data não informada';
+  return new Date(value).toLocaleString('pt-BR', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
+
+function summarizeCalculationOutputs(run) {
+  const outputs = run.result_summary?.outputs || run.result_payload?.outputs || {};
+  return Object.values(outputs)
+    .slice(0, 3)
+    .map(output => {
+      const parts = [
+        output.label,
+        output.value != null ? output.value : null,
+        output.unit,
+        output.classification,
+      ].filter(Boolean);
+      return parts.join(' · ');
+    })
+    .join(' | ') || 'Resultado registrado';
+}
+
 function normalizeCatalogRow(row) {
   const specializedRoute = row.engine_key === 'wisc-iv' ? 'wisc-iv' : null;
   return {
@@ -130,13 +160,16 @@ export default function EvaluationDetail() {
   const [testResults, setTestResults] = useState([]);
   const [tests, setTests] = useState([]);
   const [testResponseLinks, setTestResponseLinks] = useState([]);
+  const [calculationRuns, setCalculationRuns] = useState([]);
   const [deletedTests, setDeletedTests] = useState([]);
   const [catalogError, setCatalogError] = useState('');
+  const [calculationRunsError, setCalculationRunsError] = useState('');
   const [deletedTestsError, setDeletedTestsError] = useState('');
   const [loading, setLoading] = useState(true);
   const [deletingTest, setDeletingTest] = useState(null);
   const [showDeletedTests, setShowDeletedTests] = useState(false);
   const [restoringTest, setRestoringTest] = useState(null);
+  const [sharingTest, setSharingTest] = useState(null);
   const [testQuery, setTestQuery] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('all');
   const [availabilityFilter, setAvailabilityFilter] = useState('all');
@@ -150,6 +183,7 @@ export default function EvaluationDetail() {
       testResultsResult,
       catalogResult,
       responseLinksResult,
+      calculationRunsResult,
       deletedTestsResult,
     ] = await Promise.all([
       getEvaluation(evalId),
@@ -157,12 +191,22 @@ export default function EvaluationDetail() {
         .eq('evaluation_id', evalId),
       getTestCatalog(),
       getTestResponseLinks(evalId),
+      getCalculationRuns(evalId),
       getDeletedAppliedTests(evalId),
     ]);
 
     setEvaluation(evaluationResult.data);
     setTestResults(testResultsResult.data || []);
     setTestResponseLinks(responseLinksResult.data || []);
+    if (calculationRunsResult.error) {
+      setCalculationRuns([]);
+      setCalculationRunsError(
+        `Não foi possível carregar o histórico de cálculos: ${calculationRunsResult.error.message}`
+      );
+    } else {
+      setCalculationRuns(calculationRunsResult.data || []);
+      setCalculationRunsError('');
+    }
     if (deletedTestsResult.error) {
       setDeletedTests([]);
       setDeletedTestsError(
@@ -345,6 +389,119 @@ export default function EvaluationDetail() {
             })}
           </div>
         </div>
+      )}
+
+      {(calculationRuns.length > 0 || calculationRunsError) && (
+        <section style={{
+          background: 'var(--surface)', border: '1px solid var(--border)',
+          borderRadius: 'var(--radius)', padding: '14px 20px', marginBottom: 20,
+        }}>
+          <div style={{
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+            gap: 12, marginBottom: 10,
+          }}>
+            <h2 style={{
+              display: 'flex', alignItems: 'center', gap: 7,
+              fontSize: 13, fontWeight: 600, color: 'var(--text-2)',
+            }}>
+              <History size={14} color="var(--accent)" />
+              Histórico de cálculos
+            </h2>
+            {calculationRuns.length > 0 && (
+              <span style={{ fontSize: 11, color: 'var(--text-3)' }}>
+                {calculationRuns.length} execução{calculationRuns.length === 1 ? '' : 'ões'}
+              </span>
+            )}
+          </div>
+
+          {calculationRunsError ? (
+            <div style={{
+              padding: '9px 11px', borderRadius: 8,
+              color: 'var(--warning)', background: 'var(--warning-bg)', fontSize: 11,
+            }}>
+              {calculationRunsError}
+            </div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {calculationRuns.map(run => {
+                const respondent = Array.isArray(run.test_response_links)
+                  ? run.test_response_links[0]
+                  : run.test_response_links;
+                const form = testsByCode.get(run.instrument_id);
+                const responseLinkId = run.respondent_id || run.meta?.response_link_id;
+                const respondentName =
+                  respondent?.respondent_name
+                  || run.meta?.respondent_name
+                  || 'Respondente sem nome';
+                const respondentType =
+                  respondent?.respondent_type
+                  || run.meta?.respondent_type
+                  || 'other';
+                return (
+                  <article
+                    key={run.id}
+                    style={{
+                      display: 'grid',
+                      gridTemplateColumns: 'minmax(150px, .9fr) minmax(150px, .9fr) minmax(220px, 1.4fr) auto',
+                      gap: 10,
+                      alignItems: 'center',
+                      padding: '10px 12px',
+                      borderRadius: 9,
+                      background: 'var(--surface2)',
+                      border: '1px solid var(--border)',
+                    }}
+                  >
+                    <div>
+                      <div style={{ fontSize: 11, color: 'var(--text-3)' }}>
+                        Data do cálculo
+                      </div>
+                      <strong style={{ fontSize: 12, color: 'var(--text-2)' }}>
+                        {formatDateTime(run.calculated_at)}
+                      </strong>
+                    </div>
+                    <div>
+                      <div style={{ fontSize: 11, color: 'var(--text-3)' }}>
+                        Respondente
+                      </div>
+                      <strong style={{ fontSize: 12, color: 'var(--text-2)' }}>
+                        {respondentName}
+                      </strong>
+                      <div style={{ fontSize: 10.5, color: 'var(--text-3)', marginTop: 1 }}>
+                        {respondentLabel(respondentType)}
+                      </div>
+                    </div>
+                    <div>
+                      <div style={{ fontSize: 11, color: 'var(--text-3)' }}>
+                        {form?.name || run.instrument_id}
+                      </div>
+                      <div style={{ fontSize: 11, color: 'var(--text-2)', marginTop: 1 }}>
+                        {summarizeCalculationOutputs(run)}
+                      </div>
+                    </div>
+                    {responseLinkId && (
+                      <button
+                        type="button"
+                        onClick={() => navigate(
+                          `/evaluations/${evalId}/tests/${run.instrument_id}?responseLink=${responseLinkId}`
+                        )}
+                        style={{
+                          display: 'flex', alignItems: 'center', gap: 5,
+                          padding: '6px 9px', borderRadius: 7,
+                          border: '1px solid var(--accent-border)',
+                          color: 'var(--accent)', background: 'var(--accent-bg)',
+                          fontSize: 11, fontWeight: 550,
+                        }}
+                      >
+                        Visualizar
+                        <ChevronRight size={12} />
+                      </button>
+                    )}
+                  </article>
+                );
+              })}
+            </div>
+          )}
+        </section>
       )}
 
       {catalogError && (
@@ -674,7 +831,7 @@ export default function EvaluationDetail() {
                         type="button"
                         onClick={event => {
                           event.stopPropagation();
-                          if (path) navigate(path);
+                          setSharingTest(t);
                         }}
                         aria-label={`Parametrizar compartilhamento de ${t.name}`}
                         title="Parametrizar e compartilhar"
@@ -774,6 +931,16 @@ export default function EvaluationDetail() {
             setRestoringTest(null);
             load();
           }}
+        />
+      )}
+
+      {sharingTest && (
+        <TestShareDialog
+          evaluationId={evalId}
+          formCode={sharingTest.code}
+          formName={sharingTest.name}
+          patientName={patient?.nome || 'paciente'}
+          onClose={() => setSharingTest(null)}
         />
       )}
     </div>

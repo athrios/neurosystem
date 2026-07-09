@@ -86,6 +86,33 @@ export function getTestResponseLink(id) {
     .single();
 }
 
+export function getCalculationRuns(evaluationId) {
+  return supabase
+    .from('calculation_runs')
+    .select(`
+      id,
+      evaluation_id,
+      respondent_id,
+      instrument_id,
+      instrument_version,
+      calculation_status,
+      result_summary,
+      result_payload,
+      meta,
+      normative_set_id,
+      calculated_at,
+      test_response_links(
+        id,
+        form_code,
+        respondent_type,
+        respondent_name,
+        relationship
+      )
+    `)
+    .eq('evaluation_id', evaluationId)
+    .order('calculated_at', { ascending: false });
+}
+
 export function createTestResponseLink({
   evaluationId,
   formCode,

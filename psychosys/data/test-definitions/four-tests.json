@@ -1149,7 +1149,7 @@
             {
               "id": "item_1",
               "type": "radio",
-              "label": "1. Resposta do item",
+              "label": "1. Tem consideração pelos sentimentos de outras pessoas",
               "required": true,
               "span": 12,
               "options": [
@@ -1170,7 +1170,7 @@
             {
               "id": "item_2",
               "type": "radio",
-              "label": "2. Resposta do item",
+              "label": "2. Não consegue parar sentado quando tem que fazer a lição ou comer; mexe-se muito, esbarrando em coisas, derrubando coisas",
               "required": true,
               "span": 12,
               "options": [
@@ -1191,7 +1191,7 @@
             {
               "id": "item_3",
               "type": "radio",
-              "label": "3. Resposta do item",
+              "label": "3. Muitas vezes se queixa de dor de cabeça, dor de barriga ou enjôo",
               "required": true,
               "span": 12,
               "options": [
@@ -1212,7 +1212,7 @@
             {
               "id": "item_4",
               "type": "radio",
-              "label": "4. Resposta do item",
+              "label": "4. Tem boa vontade em compartilhar doces, brinquedos, lápis ... com outras crianças",
               "required": true,
               "span": 12,
               "options": [
@@ -1233,7 +1233,7 @@
             {
               "id": "item_5",
               "type": "radio",
-              "label": "5. Resposta do item",
+              "label": "5. Frequentemente tem acessos de raiva ou crises de birra",
               "required": true,
               "span": 12,
               "options": [
@@ -1254,7 +1254,7 @@
             {
               "id": "item_6",
               "type": "radio",
-              "label": "6. Resposta do item",
+              "label": "6. É solitário, prefere brincar sozinho",
               "required": true,
               "span": 12,
               "options": [
@@ -1275,7 +1275,7 @@
             {
               "id": "item_7",
               "type": "radio",
-              "label": "7. Resposta do item",
+              "label": "7. Geralmente é obediente e faz normalmente o que os adultos lhe pedem",
               "required": true,
               "span": 12,
               "options": [
@@ -1296,7 +1296,7 @@
             {
               "id": "item_8",
               "type": "radio",
-              "label": "8. Resposta do item",
+              "label": "8. Tem muitas preocupações, muitas vezes parece preocupado com tudo",
               "required": true,
               "span": 12,
               "options": [
@@ -1317,7 +1317,7 @@
             {
               "id": "item_9",
               "type": "radio",
-              "label": "9. Resposta do item",
+              "label": "9. Tenta ser atencioso se alguém parece magoado, aflito ou se sentindo mal",
               "required": true,
               "span": 12,
               "options": [
@@ -1338,7 +1338,7 @@
             {
               "id": "item_10",
               "type": "radio",
-              "label": "10. Resposta do item",
+              "label": "10. Está sempre agitado, balançando as pernas ou mexendo as mãos",
               "required": true,
               "span": 12,
               "options": [
@@ -1359,7 +1359,7 @@
             {
               "id": "item_11",
               "type": "radio",
-              "label": "11. Resposta do item",
+              "label": "11. Tem pelo menos um bom amigo ou amiga",
               "required": true,
               "span": 12,
               "options": [
@@ -1380,7 +1380,7 @@
             {
               "id": "item_12",
               "type": "radio",
-              "label": "12. Resposta do item",
+              "label": "12. Frequentemente briga com outras crianças ou as amedronta",
               "required": true,
               "span": 12,
               "options": [
@@ -1401,7 +1401,7 @@
             {
               "id": "item_13",
               "type": "radio",
-              "label": "13. Resposta do item",
+              "label": "13. Frequentemente parece triste, desanimado ou choroso",
               "required": true,
               "span": 12,
               "options": [
@@ -1422,7 +1422,7 @@
             {
               "id": "item_14",
               "type": "radio",
-              "label": "14. Resposta do item",
+              "label": "14. Em geral, é querido por outras crianças",
               "required": true,
               "span": 12,
               "options": [
@@ -1443,7 +1443,7 @@
             {
               "id": "item_15",
               "type": "radio",
-              "label": "15. Resposta do item",
+              "label": "15. Facilmente perde a concentração",
               "required": true,
               "span": 12,
               "options": [
@@ -1464,7 +1464,7 @@
             {
               "id": "item_16",
               "type": "radio",
-              "label": "16. Resposta do item",
+              "label": "16. Fica inseguro quando tem que fazer alguma coisa pela primeira vez, facilmente perde a confiança em si mesmo",
               "required": true,
               "span": 12,
               "options": [
@@ -1485,7 +1485,7 @@
             {
               "id": "item_17",
               "type": "radio",
-              "label": "17. Resposta do item",
+              "label": "17. É gentil com crianças mais novas",
               "required": true,
               "span": 12,
               "options": [
@@ -1506,7 +1506,7 @@
             {
               "id": "item_18",
               "type": "radio",
-              "label": "18. Resposta do item",
+              "label": "18. Frequentemente engana ou mente",
               "required": true,
               "span": 12,
               "options": [
@@ -1527,7 +1527,7 @@
             {
               "id": "item_19",
               "type": "radio",
-              "label": "19. Resposta do item",
+              "label": "19. Outras crianças 'pegam no pé' ou atormentam-no",
               "required": true,
               "span": 12,
               "options": [
@@ -1548,7 +1548,7 @@
             {
               "id": "item_20",
               "type": "radio",
-              "label": "20. Resposta do item",
+              "label": "20. Frequentemente se oferece para ajudar outras pessoas (pais, professores, outras crianças)",
               "required": true,
               "span": 12,
               "options": [
@@ -1569,7 +1569,7 @@
             {
               "id": "item_21",
               "type": "radio",
-              "label": "21. Resposta do item",
+              "label": "21. Pensa nas coisas antes de fazê-las",
               "required": true,
               "span": 12,
               "options": [
@@ -1590,7 +1590,7 @@
             {
               "id": "item_22",
               "type": "radio",
-              "label": "22. Resposta do item",
+              "label": "22. Rouba coisas de casa, da escola ou de outros lugares",
               "required": true,
               "span": 12,
               "options": [
@@ -1611,7 +1611,7 @@
             {
               "id": "item_23",
               "type": "radio",
-              "label": "23. Resposta do item",
+              "label": "23. Se dá melhor com adultos do que com outras crianças",
               "required": true,
               "span": 12,
               "options": [
@@ -1632,7 +1632,7 @@
             {
               "id": "item_24",
               "type": "radio",
-              "label": "24. Resposta do item",
+              "label": "24. Tem muitos medos, assusta-se facilmente",
               "required": true,
               "span": 12,
               "options": [
@@ -1653,7 +1653,7 @@
             {
               "id": "item_25",
               "type": "radio",
-              "label": "25. Resposta do item",
+              "label": "25. Completa as tarefas que começa, tem boa concentração",
               "required": true,
               "span": 12,
               "options": [
