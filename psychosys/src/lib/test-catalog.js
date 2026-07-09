@@ -68,6 +68,7 @@ export function getTestResponseLinks(evaluationId, formCode = null) {
       responded_at,
       reviewed_at,
       expires_at,
+      calculation_count,
       created_at
     `)
     .eq('evaluation_id', evaluationId)
@@ -97,7 +98,7 @@ export function createTestResponseLink({
       p_evaluation_id: evaluationId,
       p_form_code: formCode,
       p_respondent_type: respondentType,
-      p_respondent_name: respondentName,
+      p_respondent_name: respondentName || null,
       p_relationship: relationship || null,
     })
     .single();
@@ -112,10 +113,55 @@ export function updateTestResponseLink(id, updates) {
     .single();
 }
 
-export function deleteAppliedTest(evaluationId, formCode) {
+export function saveSharedTestResponseResult({
+  responseLinkId,
+  computedScores = {},
+  meta = {},
+  resultVersion = 1,
+  scoringEngineVersion = null,
+  normativeSetId = null,
+}) {
+  return supabase.rpc('save_shared_test_response_result', {
+    p_response_link_id: responseLinkId,
+    p_computed_scores: objectOrEmpty(computedScores, 'computedScores'),
+    p_meta: objectOrEmpty(meta, 'meta'),
+    p_result_version: resultVersion,
+    p_scoring_engine_version: scoringEngineVersion,
+    p_normative_set_id: normativeSetId,
+  });
+}
+
+export function deleteAppliedTest(evaluationId, formCode, password) {
   return supabase.rpc('delete_applied_test', {
     p_evaluation_id: evaluationId,
     p_form_code: formCode,
+    p_password: password,
+  });
+}
+
+export function getDeletedAppliedTests(evaluationId) {
+  return supabase
+    .from('test_deletion_audit')
+    .select(`
+      id,
+      evaluation_id,
+      test_result_id,
+      form_code,
+      result_status,
+      result_version,
+      response_links_revoked,
+      deleted_at,
+      restored_at,
+      snapshot_saved
+    `)
+    .eq('evaluation_id', evaluationId)
+    .order('deleted_at', { ascending: false });
+}
+
+export function restoreAppliedTest(deletionId, password) {
+  return supabase.rpc('restore_applied_test', {
+    p_deletion_id: deletionId,
+    p_password: password,
   });
 }
 

@@ -1,52 +1,51 @@
 import React, { useState } from 'react';
-import { AlertTriangle, Loader2, LockKeyhole, Trash2, X } from 'lucide-react';
-import { deleteAppliedTest } from '../../lib/test-catalog';
+import { ArchiveRestore, Loader2, LockKeyhole, RotateCcw, X } from 'lucide-react';
+import { restoreAppliedTest } from '../../lib/test-catalog';
 
-export default function TestDeleteDialog({
-  evaluationId,
+export default function TestRestoreDialog({
   test,
   onClose,
-  onDeleted,
+  onRestored,
 }) {
-  const [deleting, setDeleting] = useState(false);
-  const [error, setError] = useState('');
   const [password, setPassword] = useState('');
+  const [restoring, setRestoring] = useState(false);
+  const [error, setError] = useState('');
 
-  async function confirmDelete() {
+  async function confirmRestore() {
     if (!password) {
       setError('Informe a senha de segurança.');
       return;
     }
-    setDeleting(true);
+    setRestoring(true);
     setError('');
-    const result = await deleteAppliedTest(evaluationId, test.code, password);
-    setDeleting(false);
+    const result = await restoreAppliedTest(test.id, password);
+    setRestoring(false);
 
-    if (result.error || !result.data?.deleted) {
+    if (result.error || !result.data?.restored) {
       setError(
         result.error?.message
         || result.data?.message
-        || 'Não foi possível excluir o teste.'
+        || 'Não foi possível restaurar o teste.'
       );
       return;
     }
-    onDeleted(result.data);
+    onRestored(result.data);
   }
 
   return (
     <div
       role="presentation"
-      onMouseDown={event => event.target === event.currentTarget && !deleting && onClose()}
+      onMouseDown={event => event.target === event.currentTarget && !restoring && onClose()}
       style={{
-        position: 'fixed', inset: 0, zIndex: 110,
+        position: 'fixed', inset: 0, zIndex: 120,
         display: 'grid', placeItems: 'center', padding: 20,
-        background: 'rgba(25, 25, 24, .42)', backdropFilter: 'blur(3px)',
+        background: 'rgba(25, 25, 24, .52)', backdropFilter: 'blur(4px)',
       }}
     >
       <section
         role="dialog"
         aria-modal="true"
-        aria-labelledby="delete-test-title"
+        aria-labelledby="restore-test-title"
         style={{
           width: 'min(480px, 100%)', padding: 20,
           border: '1px solid var(--border)', borderRadius: 14,
@@ -56,14 +55,14 @@ export default function TestDeleteDialog({
         <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}>
           <div style={{
             width: 42, height: 42, display: 'grid', placeItems: 'center',
-            borderRadius: 10, color: 'var(--danger)', background: 'var(--danger-bg)',
+            borderRadius: 10, color: 'var(--accent)', background: 'var(--accent-bg)',
           }}>
-            <AlertTriangle size={21} />
+            <ArchiveRestore size={21} />
           </div>
           <button
             type="button"
             onClick={onClose}
-            disabled={deleting}
+            disabled={restoring}
             aria-label="Fechar"
             style={{ width: 32, height: 32, display: 'grid', placeItems: 'center' }}
           >
@@ -71,13 +70,12 @@ export default function TestDeleteDialog({
           </button>
         </div>
 
-        <h2 id="delete-test-title" style={{ fontSize: 18, fontWeight: 650, marginTop: 15 }}>
-          Excluir teste aplicado?
+        <h2 id="restore-test-title" style={{ fontSize: 18, fontWeight: 650, marginTop: 15 }}>
+          Restaurar resultado?
         </h2>
         <p style={{ color: 'var(--text-2)', fontSize: 13, lineHeight: 1.55, marginTop: 8 }}>
-          O resultado de <strong>{test.name}</strong> será removido desta avaliação.
-          Links de resposta associados serão revogados. Esta ação ficará registrada
-          na lixeira e poderá ser restaurada.
+          O resultado excluído de <strong>{test.name}</strong> será devolvido à avaliação
+          com seus escores e metadados originais.
         </p>
 
         <label style={{ display: 'block', marginTop: 16 }}>
@@ -100,12 +98,12 @@ export default function TestDeleteDialog({
               type="password"
               value={password}
               onChange={event => setPassword(event.target.value)}
-              onKeyDown={event => event.key === 'Enter' && confirmDelete()}
-              disabled={deleting}
+              onKeyDown={event => event.key === 'Enter' && confirmRestore()}
+              disabled={restoring}
               autoFocus
               autoComplete="off"
               placeholder="Digite sua senha"
-              aria-label="Senha de segurança para excluir o teste"
+              aria-label="Senha de segurança para restaurar o teste"
               style={{
                 width: '100%', height: 38, padding: '8px 12px 8px 35px',
                 border: '1px solid var(--border)', borderRadius: 8,
@@ -134,7 +132,7 @@ export default function TestDeleteDialog({
           <button
             type="button"
             onClick={onClose}
-            disabled={deleting}
+            disabled={restoring}
             style={{
               padding: '8px 12px', border: '1px solid var(--border)',
               borderRadius: 8, color: 'var(--text-2)',
@@ -144,19 +142,19 @@ export default function TestDeleteDialog({
           </button>
           <button
             type="button"
-            onClick={confirmDelete}
-            disabled={deleting || !password}
+            onClick={confirmRestore}
+            disabled={restoring || !password}
             style={{
               display: 'flex', alignItems: 'center', gap: 6,
               padding: '8px 12px', borderRadius: 8,
-              color: '#fff', background: 'var(--danger)',
-              opacity: deleting || !password ? 0.55 : 1,
+              color: '#fff', background: 'var(--accent)',
+              opacity: restoring || !password ? 0.55 : 1,
             }}
           >
-            {deleting
+            {restoring
               ? <Loader2 className="anamnesis-spin" size={14} />
-              : <Trash2 size={14} />}
-            Excluir teste
+              : <RotateCcw size={14} />}
+            Restaurar teste
           </button>
         </div>
       </section>

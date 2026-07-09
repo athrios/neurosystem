@@ -10,7 +10,7 @@ import {
   isThirdPartyTestForm,
 } from './test-response-links.js';
 
-test('libera compartilhamento apenas para formulários externos disponíveis', () => {
+test('libera compartilhamento para formulários não profissionais disponíveis', () => {
   assert.equal(isShareableTestForm({
     respondentType: 'parent',
     status: 'testing',
@@ -24,6 +24,12 @@ test('libera compartilhamento apenas para formulários externos disponíveis', (
   }), false);
   assert.equal(isShareableTestForm({
     respondentType: 'patient',
+    status: 'active',
+    available: true,
+    metadata: { public_response_enabled: true },
+  }), true);
+  assert.equal(isShareableTestForm({
+    respondentType: 'patient',
     status: 'catalogued',
     available: false,
   }), false);
@@ -32,14 +38,15 @@ test('libera compartilhamento apenas para formulários externos disponíveis', (
     status: 'testing',
     available: true,
     metadata: { public_response_enabled: false },
-  }), false);
+  }), true);
 });
 
-test('identifica somente responsáveis e informantes como terceiros', () => {
+test('identifica respondentes não profissionais como terceiros', () => {
   assert.equal(isThirdPartyTestForm({ respondentType: 'parent' }), true);
   assert.equal(isThirdPartyTestForm({ respondentType: 'teacher' }), true);
   assert.equal(isThirdPartyTestForm({ respondentType: 'other' }), true);
-  assert.equal(isThirdPartyTestForm({ respondentType: 'patient' }), false);
+  assert.equal(isThirdPartyTestForm({ respondentType: 'patient' }), true);
+  assert.equal(isThirdPartyTestForm({ respondentType: 'self' }), true);
   assert.equal(isThirdPartyTestForm({ respondentType: 'professional' }), false);
 });
 

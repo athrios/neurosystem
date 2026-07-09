@@ -183,7 +183,9 @@ export default function SharedTestResponse() {
 
       try {
         const normalized = normalizeTestDefinition(data.administration_schema);
-        const publicDefinition = createPublicTestDefinition(normalized);
+        const publicDefinition = createPublicTestDefinition(normalized, {
+          requireRespondentName: !data.respondent_name,
+        });
         const identifiedResponses = applyRespondentIdentity(data.responses, data);
         const initialValues = createInitialTestValues(normalized, identifiedResponses);
         const publicFieldCount = publicDefinition.sections.reduce(
@@ -347,11 +349,13 @@ export default function SharedTestResponse() {
     );
   }
 
+  const displayRespondentName = form?.respondent_name || responses.respondent_name || 'respondente';
+
   if (sent) {
     return (
       <main style={{ minHeight: '100vh', display: 'grid', placeItems: 'center', padding: 24 }}>
         <div className="anamnesis-step" style={{ maxWidth: 540, textAlign: 'center' }}>
-          <div style={{ color: 'var(--accent)', fontWeight: 650, fontSize: 14 }}>PsychoSys</div>
+          <div style={{ color: 'var(--accent)', fontWeight: 650, fontSize: 14 }}>Lluria</div>
           <div style={{
             width: 68, height: 68, borderRadius: '50%', margin: '28px auto 0',
             display: 'grid', placeItems: 'center', background: 'var(--success-bg)',
@@ -360,7 +364,7 @@ export default function SharedTestResponse() {
           </div>
           <h1 style={{ fontSize: 28, marginTop: 20 }}>Respostas enviadas.</h1>
           <p style={{ color: 'var(--text-2)', marginTop: 9, fontSize: 16 }}>
-            Obrigado, {form.respondent_name}. O profissional responsável já pode revisar o formulário.
+            Obrigado, {displayRespondentName}. O profissional responsável já pode revisar o formulário.
           </p>
         </div>
       </main>
@@ -372,12 +376,12 @@ export default function SharedTestResponse() {
     return (
       <main style={{ minHeight: '100vh', display: 'grid', placeItems: 'center', padding: 24 }}>
         <div className="anamnesis-step" style={{ width: '100%', maxWidth: 660 }}>
-          <div style={{ color: 'var(--accent)', fontWeight: 650, fontSize: 14 }}>PsychoSys</div>
+          <div style={{ color: 'var(--accent)', fontWeight: 650, fontSize: 14 }}>Lluria</div>
           <h1 style={{ marginTop: 20, fontSize: 'clamp(28px, 5vw, 42px)', lineHeight: 1.15 }}>
             {form.form_name}
           </h1>
           <p style={{ color: 'var(--text-2)', marginTop: 14, fontSize: 17, lineHeight: 1.6 }}>
-            Olá, {form.respondent_name}. Este formulário se refere a {form.patient_name}.
+            Olá, {displayRespondentName}. Este formulário se refere a {form.patient_name}.
             Você foi identificado como {respondentLabel(form.respondent_type).toLowerCase()}
             {form.relationship ? ` (${form.relationship})` : ''}.
           </p>
@@ -555,4 +559,3 @@ export default function SharedTestResponse() {
     </main>
   );
 }
-

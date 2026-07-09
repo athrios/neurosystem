@@ -7,6 +7,7 @@ export default function GenericSection({
   errors,
   onChange,
   disabled,
+  isFieldDisabled,
 }) {
   return (
     <section style={{
@@ -36,7 +37,7 @@ export default function GenericSection({
             value={values[field.id]}
             error={errors[field.id]}
             onChange={value => onChange(field.id, value)}
-            disabled={disabled}
+            disabled={disabled || Boolean(isFieldDisabled?.(field))}
           />
         ))}
       </div>

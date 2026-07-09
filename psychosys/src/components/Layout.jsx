@@ -55,7 +55,7 @@ export default function Layout() {
           </div>
           {!collapsed && (
             <div>
-              <div style={{ fontWeight: 600, fontSize: 15, color: 'var(--text)' }}>PsychoSys</div>
+              <div style={{ fontWeight: 600, fontSize: 15, color: 'var(--text)' }}>Lluria</div>
               <div style={{ fontSize: 10, color: 'var(--text-3)', marginTop: -1 }}>v 1.0</div>
             </div>
           )}

@@ -13,8 +13,8 @@ CREATE TABLE IF NOT EXISTS public.test_response_links (
   respondent_type   TEXT NOT NULL CHECK (
                       char_length(trim(respondent_type)) BETWEEN 1 AND 40
                     ),
-  respondent_name   TEXT NOT NULL CHECK (
-                      char_length(trim(respondent_name)) BETWEEN 1 AND 160
+  respondent_name   TEXT CHECK (
+                      respondent_name IS NULL OR char_length(trim(respondent_name)) BETWEEN 1 AND 160
                     ),
   relationship      TEXT CHECK (
                       relationship IS NULL OR char_length(relationship) <= 160
@@ -137,10 +137,6 @@ BEGIN
   IF v_evaluation.psicologo_id <> auth.uid() AND NOT public.is_master() THEN
     RAISE EXCEPTION 'Sem permissão para compartilhar esta avaliação.';
   END IF;
-  IF v_evaluation.status = 'concluida' THEN
-    RAISE EXCEPTION 'A avaliação concluída não pode gerar novos links.';
-  END IF;
-
   SELECT * INTO v_form
   FROM public.test_forms
   WHERE code = p_form_code
@@ -153,17 +149,6 @@ BEGIN
   IF v_form.respondent_type IN ('professional', 'interview') THEN
     RAISE EXCEPTION 'Este teste requer aplicação pelo profissional.';
   END IF;
-  IF NOT COALESCE((v_form.metadata->>'public_response_enabled')::BOOLEAN, FALSE) THEN
-    RAISE EXCEPTION 'Este formulário ainda não possui conteúdo público completo.';
-  END IF;
-  IF NULLIF(trim(p_respondent_name), '') IS NULL THEN
-    RAISE EXCEPTION 'Informe o nome do respondente.';
-  END IF;
-  IF p_respondent_type NOT IN ('self', 'patient')
-     AND NULLIF(trim(p_relationship), '') IS NULL THEN
-    RAISE EXCEPTION 'Informe o vínculo do respondente com o paciente.';
-  END IF;
-
   SELECT EXISTS (
     SELECT 1
     FROM jsonb_array_elements(COALESCE(v_form.administration_schema->'sections', '[]')) section,
@@ -203,7 +188,7 @@ BEGIN
     v_evaluation.psicologo_id,
     v_form.code,
     p_respondent_type,
-    trim(p_respondent_name),
+    NULLIF(trim(COALESCE(p_respondent_name, '')), ''),
     NULLIF(trim(p_relationship), '')
   )
   RETURNING * INTO v_link;

@@ -41,6 +41,10 @@ export default function TestShareDialog({
   formCode,
   formName,
   patientName,
+  initialRespondentType = '',
+  initialRespondentName = '',
+  initialRelationship = '',
+  lockRespondentFields = false,
   onClose,
 }) {
   const [form, setForm] = useState(null);
@@ -69,9 +73,13 @@ export default function TestShareDialog({
         const loadedForm = formResult.data;
         const loadedOptions = getRespondentOptions(loadedForm);
         setForm(loadedForm);
-        setRespondentType(loadedOptions[0]?.value || '');
-        if (['self', 'patient'].includes(loadedOptions[0]?.value)) {
+        const nextRespondentType = initialRespondentType || loadedOptions[0]?.value || '';
+        setRespondentType(nextRespondentType);
+        setRespondentName(initialRespondentName || '');
+        setRelationship(initialRelationship || '');
+        if (!initialRespondentName && ['self', 'patient'].includes(nextRespondentType)) {
           setRespondentName(patientName || '');
+          setRelationship('Paciente');
         }
       }
       if (linksResult.error) {
@@ -82,9 +90,10 @@ export default function TestShareDialog({
       setLoading(false);
     });
     return () => { active = false; };
-  }, [evaluationId, formCode, patientName]);
+  }, [evaluationId, formCode, initialRelationship, initialRespondentName, initialRespondentType, patientName]);
 
   function changeRespondentType(value) {
+    if (lockRespondentFields) return;
     setRespondentType(value);
     if (['self', 'patient'].includes(value)) {
       setRespondentName(patientName || '');
@@ -96,9 +105,8 @@ export default function TestShareDialog({
   }
 
   async function createLink() {
-    const requiresRelationship = !['self', 'patient'].includes(respondentType);
-    if (!respondentType || !respondentName.trim() || (requiresRelationship && !relationship.trim())) {
-      setMessage('Selecione o tipo, informe o nome e o vínculo do respondente.');
+    if (!respondentType) {
+      setMessage('Selecione o tipo do respondente.');
       return;
     }
 
@@ -108,7 +116,7 @@ export default function TestShareDialog({
       evaluationId,
       formCode,
       respondentType,
-      respondentName: respondentName.trim(),
+      respondentName: respondentName.trim() || null,
       relationship: relationship.trim(),
     });
     setCreating(false);
@@ -218,6 +226,7 @@ export default function TestShareDialog({
                   <select
                     value={respondentType}
                     onChange={event => changeRespondentType(event.target.value)}
+                    disabled={lockRespondentFields}
                     style={{
                       width: '100%', marginTop: 5, padding: '9px 10px',
                       border: '1px solid var(--border)', borderRadius: 8,
@@ -230,11 +239,12 @@ export default function TestShareDialog({
                   </select>
                 </label>
                 <label style={{ fontSize: 12 }}>
-                  Nome do respondente *
+                  Nome do respondente
                   <input
                     value={respondentName}
                     onChange={event => setRespondentName(event.target.value)}
-                    placeholder="Nome completo"
+                    disabled={lockRespondentFields}
+                    placeholder="Opcional; se vazio, o respondente preencherá no link"
                     style={{
                       width: '100%', marginTop: 5, padding: '9px 10px',
                       border: '1px solid var(--border)', borderRadius: 8,
@@ -242,10 +252,11 @@ export default function TestShareDialog({
                   />
                 </label>
                 <label style={{ fontSize: 12 }}>
-                  Vínculo com o paciente {!['self', 'patient'].includes(respondentType) && '*'}
+                  Vínculo com o paciente
                   <input
                     value={relationship}
                     onChange={event => setRelationship(event.target.value)}
+                    disabled={lockRespondentFields}
                     placeholder="Ex.: mãe, pai, professora"
                     style={{
                       width: '100%', marginTop: 5, padding: '9px 10px',
@@ -308,7 +319,9 @@ export default function TestShareDialog({
                       }}>
                         <div>
                           <div style={{ display: 'flex', alignItems: 'center', gap: 7, flexWrap: 'wrap' }}>
-                            <strong style={{ fontSize: 12 }}>{link.respondent_name}</strong>
+                            <strong style={{ fontSize: 12 }}>
+                              {link.respondent_name || 'Nome será preenchido no link'}
+                            </strong>
                             <span style={{
                               fontSize: 10, padding: '2px 7px', borderRadius: 10,
                               color: status[1], background: status[2],
@@ -343,7 +356,7 @@ export default function TestShareDialog({
                               type="button"
                               onClick={() => revokeLink(link)}
                               title="Revogar link"
-                              aria-label={`Revogar link de ${link.respondent_name}`}
+                              aria-label={`Revogar link de ${link.respondent_name || respondentLabel(link.respondent_type)}`}
                               style={{
                                 width: 30, height: 30, display: 'grid', placeItems: 'center',
                                 borderRadius: 7, color: 'var(--text-3)',

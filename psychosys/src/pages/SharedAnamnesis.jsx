@@ -22,7 +22,7 @@ function BrandLogo({ form, compact = false }) {
   }[form?.logo_alignment] || 'center';
 
   if (!form?.logo_data) {
-    return <div style={{ color: 'var(--accent)', fontWeight: 650, fontSize: 14 }}>PsychoSys</div>;
+    return <div style={{ color: 'var(--accent)', fontWeight: 650, fontSize: 14 }}>Lluria</div>;
   }
 
   return (

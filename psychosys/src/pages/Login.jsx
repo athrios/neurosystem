@@ -46,7 +46,7 @@ export default function Login() {
           }}>
             <Brain size={28} color="#fff" />
           </div>
-          <h1 style={{ fontSize: 22, fontWeight: 600, color: 'var(--text)' }}>PsychoSys</h1>
+          <h1 style={{ fontSize: 22, fontWeight: 600, color: 'var(--text)' }}>Lluria</h1>
           <p style={{ color: 'var(--text-2)', fontSize: 13, marginTop: 4 }}>
             Sistema de Avaliação Neuropsicológica
           </p>

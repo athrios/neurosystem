@@ -1,5 +1,7 @@
 const NON_SHAREABLE_RESPONDENTS = new Set(['professional', 'interview']);
 const THIRD_PARTY_RESPONDENTS = new Set([
+  'patient',
+  'self',
   'parent',
   'caregiver',
   'teacher',
@@ -23,11 +25,20 @@ const IDENTITY_FIELD_IDS = new Set([
   'relationship',
 ]);
 
+export function isRespondentIdentityField(fieldOrId) {
+  const id = typeof fieldOrId === 'string' ? fieldOrId : fieldOrId?.id;
+  return IDENTITY_FIELD_IDS.has(id);
+}
+
+export function isPatientRespondentType(type) {
+  return ['self', 'patient'].includes(type);
+}
+
 export function isShareableTestForm(form) {
   return Boolean(
     form
+    && isThirdPartyTestForm(form)
     && !NON_SHAREABLE_RESPONDENTS.has(form.respondentType || form.respondent_type)
-    && form.metadata?.public_response_enabled === true
     && ['active', 'testing'].includes(form.status || form.implementation_status)
     && (form.available ?? true)
   );
@@ -60,6 +71,32 @@ export function getRespondentOptions(form) {
   }];
 }
 
+export function getRespondentIdentitySection(definition) {
+  return definition?.sections?.find(section => (
+    section.id === 'respondent'
+    || section.fields?.some(field => isRespondentIdentityField(field))
+  )) || null;
+}
+
+export function visibleTestDefinitionForContext(definition, {
+  shareableByThirdParty = false,
+  sharedResponseReview = false,
+} = {}) {
+  if (!definition?.sections) return definition;
+
+  if (shareableByThirdParty || sharedResponseReview) return definition;
+
+  return {
+    ...definition,
+    sections: definition.sections
+      .map(section => ({
+        ...section,
+        fields: section.fields.filter(field => !isRespondentIdentityField(field)),
+      }))
+      .filter(section => section.fields.length > 0),
+  };
+}
+
 export function respondentLabel(type) {
   return RESPONDENT_LABELS[type] || type || 'Respondente';
 }
@@ -88,24 +125,55 @@ export function getPendingTestResponses(links, formCode) {
 }
 
 export function applyRespondentIdentity(responses, link) {
+  const respondentName = link.respondent_name || responses?.respondent_name || '';
   return {
     ...(responses || {}),
     respondent_type: link.respondent_type,
-    respondent_name: link.respondent_name,
+    respondent_name: respondentName,
     relationship: link.relationship || '',
   };
 }
 
-export function createPublicTestDefinition(definition) {
+export function createPublicTestDefinition(definition, {
+  requireRespondentName = false,
+} = {}) {
+  const publicSections = definition.sections
+    .map(section => ({
+      ...section,
+      fields: section.fields.filter(field => (
+        field.public !== false
+        && (
+          !IDENTITY_FIELD_IDS.has(field.id)
+          || (requireRespondentName && field.id === 'respondent_name')
+        )
+      )).map(field => (
+        requireRespondentName && field.id === 'respondent_name'
+          ? { ...field, required: true, label: field.label || 'Seu nome' }
+          : field
+      )),
+    }))
+    .filter(section => section.fields.length > 0);
+
+  const hasRespondentNameField = publicSections.some(section => (
+    section.fields.some(field => field.id === 'respondent_name')
+  ));
+
+  if (requireRespondentName && !hasRespondentNameField) {
+    publicSections.unshift({
+      id: 'respondent_identity',
+      title: 'Identificação',
+      fields: [{
+        id: 'respondent_name',
+        type: 'text',
+        label: 'Seu nome',
+        required: true,
+        span: 12,
+      }],
+    });
+  }
+
   return {
     ...definition,
-    sections: definition.sections
-      .map(section => ({
-        ...section,
-        fields: section.fields.filter(field => (
-          field.public !== false && !IDENTITY_FIELD_IDS.has(field.id)
-        )),
-      }))
-      .filter(section => section.fields.length > 0),
+    sections: publicSections,
   };
 }
